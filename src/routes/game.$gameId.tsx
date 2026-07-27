@@ -15,6 +15,7 @@ import {
   batterAtOffset,
   currentBatterId,
   fieldingSide,
+  needsReview,
   proposePlay,
   type PlayDraft,
 } from "@/lib/scoring/engine";
@@ -42,6 +43,7 @@ function GameScreen() {
   const { gameId } = Route.useParams();
   const session = useGame(gameId);
   const [draft, setDraft] = useState<PlayDraft | null>(null);
+  const [strikeThree, setStrikeThree] = useState(false);
 
   if (session.loading) {
     return <p className="p-6 text-sm text-muted-foreground">Loading scorebook…</p>;
@@ -72,14 +74,20 @@ function GameScreen() {
       return;
     }
     if (call === "strike" && state.strikes === 2) {
-      startPlay("K_LOOK");
+      setStrikeThree(true);
       return;
     }
     session.commit({ id: newId(), type: "pitch", ts: new Date().toISOString(), call });
   };
 
-  const startPlay = (result: PlayResult, fielders: number[] = []) =>
-    setDraft(proposePlay(state, result, fielders));
+  const startPlay = (result: PlayResult, fielders: number[] = []) => {
+    const proposed = proposePlay(state, result, fielders);
+    if (needsReview(state, proposed)) {
+      setDraft(proposed);
+      return;
+    }
+    session.commit({ ...proposed, id: newId(), ts: new Date().toISOString() });
+  };
 
   const finalize = () => {
     if (!draft) return;
@@ -157,18 +165,57 @@ function GameScreen() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-3 gap-2">
-                <Button variant="outline" className="h-14 text-base" onClick={() => pitch("ball")}>
-                  Ball
-                </Button>
-                <Button variant="outline" className="h-14 text-base" onClick={() => pitch("strike")}>
-                  Strike
-                </Button>
-                <Button variant="outline" className="h-14 text-base" onClick={() => pitch("foul")}>
-                  Foul
-                </Button>
-              </div>
-              <PlayEntry onSelect={startPlay} />
+              {strikeThree ? (
+                <div className="space-y-2 rounded-md border border-border p-3">
+                  <p className="text-sm font-semibold uppercase tracking-wide">Strike three</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button
+                      className="h-14 text-base"
+                      onClick={() => {
+                        setStrikeThree(false);
+                        startPlay("K_SWING");
+                      }}
+                    >
+                      Swinging
+                    </Button>
+                    <Button
+                      className="h-14 text-base"
+                      onClick={() => {
+                        setStrikeThree(false);
+                        startPlay("K_LOOK");
+                      }}
+                    >
+                      Looking
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="h-14"
+                      onClick={() => setStrikeThree(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button variant="outline" className="h-14 text-base" onClick={() => pitch("ball")}>
+                      Ball
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-14 text-base"
+                      onClick={() => pitch("strike")}
+                    >
+                      Strike
+                    </Button>
+                    <Button variant="outline" className="h-14 text-base" onClick={() => pitch("foul")}>
+                      Foul
+                    </Button>
+                  </div>
+                  <PlayEntry onSelect={startPlay} />
+                </>
+              )}
             </>
           )}
 

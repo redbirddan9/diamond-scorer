@@ -428,3 +428,44 @@ export function isInningEnding(state: GameState, draft: PlayDraft): boolean {
 export function runsOnPlay(draft: PlayDraft): number {
   return draft.advances.filter((a) => a.to === 4).length + (draft.batterTo === 4 ? 1 : 0);
 }
+
+/**
+ * Should the scorer be asked to confirm runner advancement / RBIs?
+ *
+ * Only when the situation is genuinely ambiguous about a run scoring —
+ * otherwise basic baseball logic is applied automatically.
+ */
+export function needsReview(state: GameState, draft: PlayDraft): boolean {
+  const runners = ([1, 2, 3] as Base[]).filter((b) => state.bases[b]);
+  if (runners.length === 0) return false;
+
+  switch (draft.result) {
+    // Everybody scores — nothing to decide.
+    case "HR":
+    case "3B":
+      return false;
+    // Ball in play with the batter reaching: a trailing runner stopped at
+    // third could plausibly have been waved home.
+    case "1B":
+    case "2B":
+    case "E":
+    case "FC":
+      return draft.advances.some((a) => a.to === 3);
+    case "SF":
+      // Tagging from second is a judgement call.
+      return Boolean(state.bases[2]) || Boolean(state.bases[1]);
+    case "SH":
+      return Boolean(state.bases[3]);
+    case "DP":
+    case "TP":
+      return true;
+    // Routine outs: a run can only score from third with fewer than two outs.
+    case "GO":
+    case "FO":
+    case "LO":
+    case "PO":
+      return Boolean(state.bases[3]) && state.outs < 2;
+    default:
+      return false;
+  }
+}

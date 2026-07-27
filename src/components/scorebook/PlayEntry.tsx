@@ -1,93 +1,89 @@
 import { useState } from "react";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { RESULT_LABELS } from "@/lib/scoring/notation";
 import type { PlayResult } from "@/lib/scoring/types";
 
-interface Category {
+interface Node {
   key: string;
+  /** Scorebook symbol shown on the key. */
+  symbol: string;
   label: string;
-  options: { result: PlayResult; label: string }[];
+  result?: PlayResult;
+  children?: Node[];
 }
 
 /** Hierarchical menu — never more than three taps to any play. */
-export const CATEGORIES: Category[] = [
+export const MENU: Node[] = [
   {
-    key: "hit",
-    label: "Hit",
-    options: [
-      { result: "1B", label: "Single" },
-      { result: "2B", label: "Double" },
-      { result: "3B", label: "Triple" },
-      { result: "HR", label: "Home Run" },
+    key: "inplay",
+    symbol: "IP",
+    label: "In Play",
+    children: [
+      {
+        key: "hit",
+        symbol: "H",
+        label: "Hit",
+        children: [
+          { key: "1b", symbol: "1B", label: "Single", result: "1B" },
+          { key: "2b", symbol: "2B", label: "Double", result: "2B" },
+          { key: "3b", symbol: "3B", label: "Triple", result: "3B" },
+          { key: "hr", symbol: "HR", label: "Home Run", result: "HR" },
+        ],
+      },
+      {
+        key: "out",
+        symbol: "O",
+        label: "Out",
+        children: [
+          { key: "go", symbol: "GO", label: "Ground Out", result: "GO" },
+          { key: "fo", symbol: "F", label: "Fly Out", result: "FO" },
+          { key: "lo", symbol: "L", label: "Line Out", result: "LO" },
+          { key: "po", symbol: "P", label: "Pop Out", result: "PO" },
+          { key: "dp", symbol: "DP", label: "Double Play", result: "DP" },
+          { key: "tp", symbol: "TP", label: "Triple Play", result: "TP" },
+        ],
+      },
+      { key: "fc", symbol: "FC", label: "Fielder's Choice", result: "FC" },
+      {
+        key: "sac",
+        symbol: "SAC",
+        label: "Sacrifice",
+        children: [
+          { key: "sf", symbol: "SF", label: "Sac Fly (RBI)", result: "SF" },
+          { key: "sh", symbol: "SH", label: "Sac Bunt", result: "SH" },
+        ],
+      },
     ],
   },
   {
     key: "k",
+    symbol: "K",
     label: "Strikeout",
-    options: [
-      { result: "K_SWING", label: "Swinging" },
-      { result: "K_LOOK", label: "Looking" },
+    children: [
+      { key: "ks", symbol: "K", label: "Swinging", result: "K_SWING" },
+      { key: "kl", symbol: "ꓘ", label: "Looking", result: "K_LOOK" },
     ],
   },
+  { key: "bb", symbol: "BB", label: "Walk", result: "BB" },
+  { key: "hbp", symbol: "HBP", label: "Hit By Pitch", result: "HBP" },
+  { key: "e", symbol: "E", label: "Reached on Error", result: "E" },
   {
-    key: "bb",
-    label: "Walk",
-    options: [
-      { result: "BB", label: "Walk" },
-      { result: "IBB", label: "Intentional" },
-    ],
-  },
-  { key: "hbp", label: "Hit By Pitch", options: [{ result: "HBP", label: "Hit By Pitch" }] },
-  { key: "e", label: "Reached on Error", options: [{ result: "E", label: "Reached on Error" }] },
-  { key: "fc", label: "Fielder's Choice", options: [{ result: "FC", label: "Fielder's Choice" }] },
-  {
-    key: "sac",
-    label: "Sacrifice",
-    options: [
-      { result: "SF", label: "Sac Fly" },
-      { result: "SH", label: "Sac Bunt" },
-    ],
-  },
-  {
-    key: "out",
-    label: "Out",
-    options: [
-      { result: "GO", label: "Ground Out" },
-      { result: "FO", label: "Fly Out" },
-      { result: "LO", label: "Line Out" },
-      { result: "PO", label: "Pop Out" },
-      { result: "DP", label: "Double Play" },
-      { result: "TP", label: "Triple Play" },
-    ],
-  },
-  {
-    key: "misc",
-    label: "Miscellaneous",
-    options: [
-      { result: "CI", label: "Catcher's Interference" },
-      { result: "OBSTRUCTION", label: "Obstruction" },
-      { result: "INTERFERENCE", label: "Fan Interference" },
-      { result: "APPEAL", label: "Appeal Play" },
-      { result: "OTHER", label: "Other" },
+    key: "other",
+    symbol: "…",
+    label: "Other",
+    children: [
+      { key: "ibb", symbol: "IBB", label: "Intentional Walk", result: "IBB" },
+      { key: "ci", symbol: "CI", label: "Catcher's Interference", result: "CI" },
+      { key: "obs", symbol: "OB", label: "Obstruction", result: "OBSTRUCTION" },
+      { key: "int", symbol: "INT", label: "Fan Interference", result: "INTERFERENCE" },
+      { key: "app", symbol: "AP", label: "Appeal Play", result: "APPEAL" },
+      { key: "oth", symbol: "?", label: "Other", result: "OTHER" },
     ],
   },
 ];
 
 const NEEDS_FIELDERS: PlayResult[] = ["GO", "FO", "LO", "PO", "DP", "TP", "E", "FC", "SF", "SH"];
-
-const COMMON_COMBOS: Partial<Record<PlayResult, string[]>> = {
-  GO: ["6-3", "4-3", "5-3", "1-3", "3-1", "5-4-3", "6-4-3"],
-  DP: ["6-4-3", "4-6-3", "5-4-3", "1-6-3", "3-6-1"],
-  FO: ["8", "9", "7"],
-  LO: ["6", "4", "5", "3"],
-  PO: ["3", "4", "2", "5"],
-  SF: ["8", "9", "7"],
-  SH: ["1-3", "5-3", "3-1"],
-  FC: ["6-4", "4-6", "5-4", "2-5"],
-  E: ["6", "5", "4", "3", "8", "9", "7"],
-};
 
 const POSITIONS = [
   { n: 1, label: "P" },
@@ -101,86 +97,55 @@ const POSITIONS = [
   { n: 9, label: "RF" },
 ];
 
-const RECENTS_KEY = "scorebook.recents";
-
-export function loadRecents(): PlayResult[] {
-  if (typeof localStorage === "undefined") return [];
-  try {
-    return JSON.parse(localStorage.getItem(RECENTS_KEY) ?? "[]") as PlayResult[];
-  } catch {
-    return [];
-  }
-}
-
-export function pushRecent(result: PlayResult) {
-  const next = [result, ...loadRecents().filter((r) => r !== result)].slice(0, 4);
-  localStorage.setItem(RECENTS_KEY, JSON.stringify(next));
-}
-
 interface PlayEntryProps {
   onSelect: (result: PlayResult, fielders: number[]) => void;
 }
 
 export function PlayEntry({ onSelect }: PlayEntryProps) {
-  const [category, setCategory] = useState<Category | null>(null);
+  const [path, setPath] = useState<Node[]>([]);
   const [pending, setPending] = useState<PlayResult | null>(null);
   const [fielders, setFielders] = useState<number[]>([]);
-  const recents = loadRecents();
 
-  const choose = (result: PlayResult) => {
+  const reset = () => {
+    setPath([]);
+    setPending(null);
+    setFielders([]);
+  };
+
+  const choose = (node: Node) => {
+    if (node.children?.length) {
+      setPath((p) => [...p, node]);
+      return;
+    }
+    const result = node.result!;
     if (NEEDS_FIELDERS.includes(result)) {
       setPending(result);
       setFielders([]);
       return;
     }
-    pushRecent(result);
     onSelect(result, []);
-    setCategory(null);
-  };
-
-  const finishFielders = (list: number[]) => {
-    if (!pending) return;
-    pushRecent(pending);
-    onSelect(pending, list);
-    setPending(null);
-    setCategory(null);
-    setFielders([]);
+    reset();
   };
 
   if (pending) {
-    const combos = COMMON_COMBOS[pending] ?? [];
     return (
       <div className="space-y-3">
         <Header
-          title={`${RESULT_LABELS[pending]} — fielders`}
+          title={`${RESULT_LABELS[pending]} — position numbers`}
           onBack={() => {
             setPending(null);
             setFielders([]);
           }}
         />
-        {combos.length > 0 && (
-          <div className="grid grid-cols-4 gap-2">
-            {combos.map((combo) => (
-              <Button
-                key={combo}
-                variant="secondary"
-                className="h-14 font-mono text-lg"
-                onClick={() => finishFielders(combo.split("-").map(Number))}
-              >
-                {combo}
-              </Button>
-            ))}
-          </div>
-        )}
         <div className="grid grid-cols-3 gap-2">
           {POSITIONS.map((p) => (
             <Button
               key={p.n}
               variant="outline"
-              className="h-14 flex-col gap-0 text-base"
+              className="h-16 flex-col gap-0 text-base"
               onClick={() => setFielders((f) => [...f, p.n])}
             >
-              <span className="font-mono text-lg font-bold">{p.n}</span>
+              <span className="font-mono text-xl font-bold">{p.n}</span>
               <span className="text-[10px] text-muted-foreground">{p.label}</span>
             </Button>
           ))}
@@ -192,7 +157,13 @@ export function PlayEntry({ onSelect }: PlayEntryProps) {
           <Button variant="ghost" className="h-12" onClick={() => setFielders([])}>
             Clear
           </Button>
-          <Button className="h-12 px-6" onClick={() => finishFielders(fielders)}>
+          <Button
+            className="h-12 px-6"
+            onClick={() => {
+              onSelect(pending, fielders);
+              reset();
+            }}
+          >
             Apply
           </Button>
         </div>
@@ -200,51 +171,22 @@ export function PlayEntry({ onSelect }: PlayEntryProps) {
     );
   }
 
-  if (category) {
-    return (
-      <div className="space-y-3">
-        <Header title={category.label} onBack={() => setCategory(null)} />
-        <div className="grid grid-cols-2 gap-2">
-          {category.options.map((opt) => (
-            <Button
-              key={opt.result}
-              variant="secondary"
-              className="h-16 text-base"
-              onClick={() => choose(opt.result)}
-            >
-              {opt.label}
-            </Button>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const current = path[path.length - 1];
+  const nodes = current ? current.children! : MENU;
 
   return (
     <div className="space-y-3">
-      {recents.length > 0 && (
-        <div>
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Recent
-          </p>
-          <div className="grid grid-cols-4 gap-2">
-            {recents.map((r) => (
-              <Button key={r} variant="outline" className="h-12 text-xs" onClick={() => choose(r)}>
-                {RESULT_LABELS[r]}
-              </Button>
-            ))}
-          </div>
-        </div>
-      )}
+      {current && <Header title={current.label} onBack={() => setPath((p) => p.slice(0, -1))} />}
       <div className="grid grid-cols-3 gap-2">
-        {CATEGORIES.map((c) => (
+        {nodes.map((node) => (
           <Button
-            key={c.key}
-            className={cn("h-16 text-sm leading-tight", c.key === "misc" && "col-span-3 h-12")}
-            variant={c.key === "misc" ? "ghost" : "default"}
-            onClick={() => (c.options.length === 1 ? choose(c.options[0].result) : setCategory(c))}
+            key={node.key}
+            variant={current ? "secondary" : "default"}
+            className="h-16 flex-col gap-0.5"
+            onClick={() => choose(node)}
           >
-            {c.label}
+            <span className="font-mono text-xl font-bold leading-none">{node.symbol}</span>
+            <span className="text-[10px] font-normal opacity-80">{node.label}</span>
           </Button>
         ))}
       </div>

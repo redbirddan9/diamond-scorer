@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { createGame, loadTemplates, saveTemplate } from "@/lib/storage/games";
 import { newId } from "@/lib/useGame";
 import type { GameSetup, Player, TeamSetup } from "@/lib/scoring/types";
@@ -14,24 +16,26 @@ export const Route = createFileRoute("/new")({
       { title: "New Game Setup — Scorebook Deck" },
       {
         name: "description",
-        content:
-          "Enter teams, rosters, batting order, umpires and game conditions before first pitch.",
+        content: "Enter teams, date, ballpark, pitchers and lineups before first pitch.",
       },
       { property: "og:title", content: "New Game Setup — Scorebook Deck" },
-      { property: "og:description", content: "Set up teams, lineups and conditions before first pitch." },
+      {
+        property: "og:description",
+        content: "Set up teams, pitchers and lineups before first pitch.",
+      },
     ],
   }),
   component: NewGame,
 });
 
-const DEFAULT_POSITIONS = ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF"];
+export const POSITION_OPTIONS = ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH"];
 
 function blankRoster(prefix: string): Player[] {
-  return DEFAULT_POSITIONS.map((position, i) => ({
+  return Array.from({ length: 9 }, (_, i) => ({
     id: `${prefix}-${i}-${Math.random().toString(36).slice(2, 7)}`,
-    number: String(i + 1),
+    number: "",
     name: "",
-    position,
+    position: "",
   }));
 }
 
@@ -39,22 +43,18 @@ function NewGame() {
   const navigate = useNavigate();
   const [away, setAway] = useState<Player[]>(() => blankRoster("away"));
   const [home, setHome] = useState<Player[]>(() => blankRoster("home"));
+  const [showMore, setShowMore] = useState(false);
+  const [useDh, setUseDh] = useState(true);
   const [meta, setMeta] = useState({
     awayName: "Away",
     homeName: "Home",
-    league: "",
-    season: String(new Date().getFullYear()),
-    gameNumber: "",
     date: new Date().toISOString().slice(0, 10),
-    startTime: "",
     stadium: "",
     city: "",
-    weather: "",
-    temperature: "",
-    wind: "",
+    awayPitcher: "",
+    homePitcher: "",
+    startTime: "",
     attendance: "",
-    fieldConditions: "",
-    officialScorer: "",
     notes: "",
     innings: "9",
     umpHome: "",
@@ -64,16 +64,28 @@ function NewGame() {
   });
   const templates = loadTemplates();
 
-  const buildTeam = (name: string, players: Player[]): TeamSetup => {
+  const buildTeam = (name: string, players: Player[], pitcherName: string): TeamSetup => {
     const filled = players.map((p, i) => ({
       ...p,
       name: p.name.trim() || `Player ${i + 1}`,
+      position: p.position || (useDh && i === 0 ? "DH" : ""),
     }));
+    const lineup = filled.map((p) => p.id);
+    const inLineupPitcher = filled.find((p) => p.position === "P");
+    if (!useDh && inLineupPitcher) {
+      return { name: name.trim() || "Team", players: filled, lineup, pitcherId: inLineupPitcher.id };
+    }
+    const pitcher: Player = {
+      id: `${name}-p-${Math.random().toString(36).slice(2, 7)}`,
+      number: "",
+      name: pitcherName.trim() || "Pitcher",
+      position: "P",
+    };
     return {
       name: name.trim() || "Team",
-      players: filled,
-      lineup: filled.map((p) => p.id),
-      pitcherId: filled.find((p) => p.position === "P")?.id ?? filled[0].id,
+      players: [...filled, pitcher],
+      lineup,
+      pitcherId: pitcher.id,
     };
   };
 
@@ -81,20 +93,13 @@ function NewGame() {
     const setup: GameSetup = {
       id: newId(),
       createdAt: new Date().toISOString(),
-      league: meta.league,
-      season: meta.season,
-      gameNumber: meta.gameNumber,
       date: meta.date,
       startTime: meta.startTime,
       stadium: meta.stadium,
       city: meta.city,
-      weather: meta.weather,
-      temperature: meta.temperature,
-      wind: meta.wind,
       attendance: meta.attendance,
-      fieldConditions: meta.fieldConditions,
-      officialScorer: meta.officialScorer,
       notes: meta.notes,
+      useDh,
       umpires: {
         home: meta.umpHome,
         first: meta.umpFirst,
@@ -102,8 +107,8 @@ function NewGame() {
         third: meta.umpThird,
       },
       innings: Number(meta.innings) || 9,
-      away: buildTeam(meta.awayName, away),
-      home: buildTeam(meta.homeName, home),
+      away: buildTeam(meta.awayName, away, meta.awayPitcher),
+      home: buildTeam(meta.homeName, home, meta.homePitcher),
     };
     const game = await createGame(setup);
     void navigate({ to: "/game/$gameId", params: { gameId: game.id } });
@@ -130,35 +135,75 @@ function NewGame() {
       <p className="text-sm text-muted-foreground">Everything is stored locally on this device.</p>
 
       <section className="mt-6 space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide">Game</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {field("awayName", "Away Team")}
           {field("homeName", "Home Team")}
-          {field("league", "League")}
-          {field("season", "Season")}
-          {field("gameNumber", "Game Number")}
           {field("date", "Date", "date")}
-          {field("startTime", "Start Time", "time")}
           {field("stadium", "Stadium")}
           {field("city", "City")}
-          {field("weather", "Weather")}
-          {field("temperature", "Temperature")}
-          {field("wind", "Wind")}
-          {field("attendance", "Attendance")}
-          {field("fieldConditions", "Field Conditions")}
-          {field("officialScorer", "Official Scorer")}
-          {field("innings", "Innings")}
         </div>
       </section>
 
       <section className="mt-6 space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide">Umpires</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {field("umpHome", "Home Plate")}
-          {field("umpFirst", "First Base")}
-          {field("umpSecond", "Second Base")}
-          {field("umpThird", "Third Base")}
+        <h2 className="text-sm font-semibold uppercase tracking-wide">Starting Pitchers</h2>
+        <div className="grid grid-cols-2 gap-3">
+          {field("awayPitcher", `${meta.awayName || "Away"} Pitcher`)}
+          {field("homePitcher", `${meta.homeName || "Home"} Pitcher`)}
         </div>
+      </section>
+
+      <section className="mt-6">
+        <Button
+          variant="outline"
+          className="h-12 w-full justify-start"
+          onClick={() => setShowMore((s) => !s)}
+        >
+          {showMore ? (
+            <ChevronDown className="mr-2 h-4 w-4" />
+          ) : (
+            <ChevronRight className="mr-2 h-4 w-4" />
+          )}
+          Game details &amp; settings
+        </Button>
+        {showMore && (
+          <div className="mt-3 space-y-4 rounded-md border border-border p-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {field("startTime", "Start Time", "time")}
+              {field("attendance", "Attendance")}
+              {field("innings", "Innings")}
+            </div>
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Umpires
+              </h3>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {field("umpHome", "Home Plate")}
+                {field("umpFirst", "First Base")}
+                {field("umpSecond", "Second Base")}
+                {field("umpThird", "Third Base")}
+              </div>
+            </div>
+            <div className="flex items-center justify-between rounded-md border border-border p-3">
+              <div>
+                <p className="text-sm font-medium">Universal DH</p>
+                <p className="text-xs text-muted-foreground">
+                  Pitcher does not bat; the lineup uses a designated hitter.
+                </p>
+              </div>
+              <Switch checked={useDh} onCheckedChange={setUseDh} aria-label="Universal DH" />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="notes" className="text-xs uppercase tracking-wide text-muted-foreground">
+                Notes
+              </Label>
+              <Textarea
+                id="notes"
+                value={meta.notes}
+                onChange={(e) => setMeta({ ...meta, notes: e.target.value })}
+              />
+            </div>
+          </div>
+        )}
       </section>
 
       <RosterEditor
@@ -175,17 +220,6 @@ function NewGame() {
         templates={templates}
         onSaveTemplate={() => saveTemplate({ name: meta.homeName, players: home })}
       />
-
-      <section className="mt-6 space-y-1">
-        <Label htmlFor="notes" className="text-xs uppercase tracking-wide text-muted-foreground">
-          Notes
-        </Label>
-        <Textarea
-          id="notes"
-          value={meta.notes}
-          onChange={(e) => setMeta({ ...meta, notes: e.target.value })}
-        />
-      </section>
 
       <div className="mt-8 flex gap-2">
         <Button variant="ghost" className="h-14" onClick={() => navigate({ to: "/" })}>
@@ -228,7 +262,10 @@ function RosterEditor({
                 const t = templates.find((x) => x.name === e.target.value);
                 if (t)
                   onChange(
-                    t.players.map((p) => ({ ...p, id: `${p.id}-${Math.random().toString(36).slice(2, 6)}` })),
+                    t.players.map((p) => ({
+                      ...p,
+                      id: `${p.id}-${Math.random().toString(36).slice(2, 6)}`,
+                    })),
                   );
               }}
             >
@@ -247,14 +284,7 @@ function RosterEditor({
       </div>
       <ul className="space-y-1.5">
         {players.map((p, i) => (
-          <li key={p.id} className="grid grid-cols-[2rem_4rem_minmax(0,1fr)_4.5rem] items-center gap-2">
-            <span className="text-center font-mono text-xs text-muted-foreground">{i + 1}</span>
-            <Input
-              className="h-11 text-center font-mono"
-              value={p.number}
-              aria-label="Uniform number"
-              onChange={(e) => update(i, { number: e.target.value })}
-            />
+          <li key={p.id} className="grid grid-cols-[minmax(0,1fr)_6rem] items-center gap-2">
             <Input
               className="h-11"
               value={p.name}
@@ -262,12 +292,19 @@ function RosterEditor({
               aria-label="Player name"
               onChange={(e) => update(i, { name: e.target.value })}
             />
-            <Input
-              className="h-11 text-center"
+            <select
+              className="h-11 rounded-md border border-input bg-background px-2 text-sm"
               value={p.position}
               aria-label="Position"
               onChange={(e) => update(i, { position: e.target.value })}
-            />
+            >
+              <option value=""></option>
+              {POSITION_OPTIONS.map((pos) => (
+                <option key={pos} value={pos}>
+                  {pos}
+                </option>
+              ))}
+            </select>
           </li>
         ))}
       </ul>

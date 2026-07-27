@@ -44,7 +44,7 @@ function Library() {
       .filter((g) =>
         !q
           ? true
-          : [g.setup.away.name, g.setup.home.name, g.setup.league, g.setup.stadium, g.setup.date]
+          : [g.setup.away.name, g.setup.home.name, g.setup.city, g.setup.stadium, g.setup.date]
               .filter(Boolean)
               .some((v) => String(v).toLowerCase().includes(q)),
       );
@@ -66,7 +66,7 @@ function Library() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search teams, league, stadium, date"
+          placeholder="Search teams, stadium, city, date"
             className="h-12 pl-9"
           />
         </div>
@@ -112,7 +112,7 @@ function Library() {
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
                   {game.setup.date}
-                  {game.setup.league ? ` · ${game.setup.league}` : ""} ·{" "}
+                  {game.setup.stadium ? ` · ${game.setup.stadium}` : ""} ·{" "}
                   {state.over || game.status === "final"
                     ? `Final ${state.score.away}–${state.score.home}`
                     : `${state.half === "top" ? "Top" : "Bot"} ${state.inning} · ${state.score.away}–${state.score.home}`}

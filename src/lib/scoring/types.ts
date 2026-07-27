@@ -14,7 +14,7 @@ export type Destination = 1 | 2 | 3 | 4 | "out";
 
 export interface Player {
   id: string;
-  number: string;
+  number?: string;
   name: string;
   position: string;
   bats?: Handedness;
@@ -39,20 +39,14 @@ export interface Umpires {
 export interface GameSetup {
   id: string;
   createdAt: string;
-  league?: string;
-  season?: string;
-  gameNumber?: string;
   date: string;
   startTime?: string;
   stadium?: string;
   city?: string;
-  weather?: string;
-  temperature?: string;
-  wind?: string;
   attendance?: string;
-  fieldConditions?: string;
-  officialScorer?: string;
   notes?: string;
+  /** Universal DH: pitcher does not bat. */
+  useDh?: boolean;
   umpires: Umpires;
   innings: number;
   away: TeamSetup;

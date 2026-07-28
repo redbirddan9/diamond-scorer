@@ -6,6 +6,7 @@
  * simply "drop/replace the event and replay".
  */
 import type {
+  AbsEvent,
   Advance,
   Base,
   Destination,
@@ -23,6 +24,7 @@ export const BATTER_OUT_RESULTS: PlayResult[] = [
   "K_LOOK",
   "GO",
   "FO",
+  "PF",
   "LO",
   "PO",
   "DP",
@@ -31,7 +33,7 @@ export const BATTER_OUT_RESULTS: PlayResult[] = [
   "SH",
 ];
 
-export const HIT_RESULTS: PlayResult[] = ["1B", "2B", "3B", "HR"];
+export const HIT_RESULTS: PlayResult[] = ["1B", "2B", "3B", "HR", "GRD"];
 
 export function isHit(result: PlayResult) {
   return HIT_RESULTS.includes(result);
@@ -85,8 +87,15 @@ export function createInitialState(setup: GameSetup): GameState {
     pitcher: { away: setup.away.pitcherId, home: setup.home.pitcherId },
     pitchesThrown: {},
     positions: { away: positions("away"), home: positions("home") },
+    playerNames: Object.fromEntries(
+      [...setup.away.players, ...setup.home.players].map((p) => [p.id, p.name]),
+    ),
     plays: [],
     over: false,
+    challenges: { away: 2, home: 2 },
+    absLog: [],
+    ghostRunner: null,
+    winner: null,
   };
 }
 
@@ -122,7 +131,10 @@ function clone(state: GameState): GameState {
     pitcher: { ...state.pitcher },
     pitchesThrown: { ...state.pitchesThrown },
     positions: { away: { ...state.positions.away }, home: { ...state.positions.home } },
+    playerNames: { ...state.playerNames },
     plays: [...state.plays],
+    challenges: { ...state.challenges },
+    absLog: [...state.absLog],
   };
 }
 
@@ -146,15 +158,56 @@ function endHalfInning(state: GameState) {
   state.outs = 0;
   state.balls = 0;
   state.strikes = 0;
+  const regulation = state.setup.innings;
   if (state.half === "top") {
     state.half = "bottom";
+    // Home team wins without batting in the bottom half.
+    if (state.inning >= regulation && state.score.home > state.score.away) {
+      state.over = true;
+      state.winner = "home";
+      return;
+    }
   } else {
     state.half = "top";
     state.inning += 1;
+    if (state.inning > regulation && state.score.home !== state.score.away) {
+      state.over = true;
+      state.winner = state.score.home > state.score.away ? "home" : "away";
+      return;
+    }
+    // Extra innings: teams with no challenges left get one for this inning.
+    if (state.inning > regulation) {
+      if (state.challenges.away === 0) state.challenges.away = 1;
+      if (state.challenges.home === 0) state.challenges.home = 1;
+    }
   }
-  const regulation = state.setup.innings;
-  if (state.inning > regulation && state.score.home !== state.score.away) {
+  placeGhostRunner(state);
+}
+
+/**
+ * Extra-innings automatic runner: the player who made the last out of the
+ * previous inning (i.e. the batter directly preceding the leadoff hitter)
+ * starts at second base.
+ */
+function placeGhostRunner(state: GameState) {
+  state.ghostRunner = null;
+  if (state.inning <= state.setup.innings || state.over) return;
+  const side = battingSide(state);
+  const order = state.lineup[side];
+  if (!order.length) return;
+  const runnerId = order[(state.slot[side] - 1 + order.length) % order.length];
+  state.bases[2] = runnerId;
+  state.ghostRunner = runnerId;
+}
+
+function checkWalkOff(state: GameState) {
+  if (
+    state.half === "bottom" &&
+    state.inning >= state.setup.innings &&
+    state.score.home > state.score.away
+  ) {
     state.over = true;
+    state.winner = "home";
   }
 }
 
@@ -214,7 +267,7 @@ function applyPlay(prev: GameState, ev: PlayEvent): GameState {
   const pitchCount = state.balls + state.strikes;
 
   if (isHit(ev.result)) state.hits[offense] += 1;
-  if (ev.errorFielder) state.errors[defense] += 1;
+  state.errors[defense] += (ev.errorFielders ?? []).length;
 
   const { outs, scored } = applyMovement(state, ev.advances, ev.batterId, ev.batterTo);
   state.outs += outs;
@@ -240,14 +293,23 @@ function applyPlay(prev: GameState, ev: PlayEvent): GameState {
 
   if (state.outs >= 3) {
     endHalfInning(state);
-  } else if (
-    state.half === "bottom" &&
-    state.inning >= state.setup.innings &&
-    state.score.home > state.score.away
-  ) {
-    state.over = true;
+  } else {
+    checkWalkOff(state);
   }
   return state;
+}
+
+/** How the count changes when an ABS challenge is resolved. */
+export function absCountResult(outcome: AbsEvent["outcome"]): "ball" | "strike" {
+  return outcome === "ball-confirmed" || outcome === "strike-overturned" ? "ball" : "strike";
+}
+
+export function absTeam(caller: AbsEvent["caller"], state: GameState): TeamSide {
+  return caller === "batter" ? battingSide(state) : fieldingSide(state);
+}
+
+export function absRetained(outcome: AbsEvent["outcome"]): boolean {
+  return outcome.endsWith("overturned");
 }
 
 export function applyEvent(prev: GameState, ev: GameEvent): GameState {
@@ -266,11 +328,32 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
       const { outs } = applyMovement(state, ev.advances, null, null);
       state.outs += outs;
       if (state.outs >= 3) endHalfInning(state);
+      else checkWalkOff(state);
+      return state;
+    }
+    case "abs": {
+      const state = clone(prev);
+      const team = absTeam(ev.caller, state);
+      const retained = absRetained(ev.outcome);
+      if (!retained) state.challenges[team] = Math.max(0, state.challenges[team] - 1);
+      state.absLog.push({
+        inning: state.inning,
+        half: state.half,
+        team,
+        caller: ev.caller,
+        outcome: ev.outcome,
+        retained,
+      });
+      const pitcherId = state.pitcher[fieldingSide(state)];
+      state.pitchesThrown[pitcherId] = (state.pitchesThrown[pitcherId] ?? 0) + 1;
+      if (absCountResult(ev.outcome) === "ball") state.balls = Math.min(state.balls + 1, 3);
+      else state.strikes = Math.min(state.strikes + 1, 2);
       return state;
     }
     case "sub": {
       const state = clone(prev);
       const order = state.lineup[ev.team];
+      if (ev.inPlayerName) state.playerNames[ev.inPlayerId] = ev.inPlayerName;
       if (typeof ev.slot === "number" && ev.slot >= 0 && ev.slot < order.length) {
         order[ev.slot] = ev.inPlayerId;
       } else {
@@ -336,7 +419,7 @@ export function proposePlay(
   const batterId = currentBatterId(state);
   const advances: Advance[] = [];
   let batterTo: Destination = "out";
-  let errorFielder: number | null = null;
+  let errorFielders: number[] = [];
 
   const push = (from: Base, to: Destination, reason: Advance["reason"]) => {
     const runnerId = state.bases[from];
@@ -349,6 +432,11 @@ export function proposePlay(
       occupied(state).forEach((b) => push(b, advanceBy(b, 1), "hit"));
       break;
     case "2B":
+      batterTo = 2;
+      occupied(state).forEach((b) => push(b, advanceBy(b, 2), "hit"));
+      break;
+    case "GRD":
+      // Ground rule double: two-base award for the batter and every runner.
       batterTo = 2;
       occupied(state).forEach((b) => push(b, advanceBy(b, 2), "hit"));
       break;
@@ -371,7 +459,7 @@ export function proposePlay(
       break;
     case "E":
       batterTo = 1;
-      errorFielder = fielders[0] ?? null;
+      errorFielders = [...fielders];
       occupied(state).forEach((b) => push(b, advanceBy(b, 1), "error"));
       break;
     case "FC": {
@@ -414,8 +502,8 @@ export function proposePlay(
     batterTo,
     advances,
     rbi,
-    errorFielder,
-    earnedRuns: !errorFielder,
+    errorFielders,
+    earnedRuns: errorFielders.length === 0,
   };
 }
 
@@ -444,6 +532,9 @@ export function needsReview(state: GameState, draft: PlayDraft): boolean {
     case "HR":
     case "3B":
       return false;
+    // Ground rule double: the award is fixed by rule, never a judgement call.
+    case "GRD":
+      return false;
     // Ball in play with the batter reaching: a trailing runner stopped at
     // third could plausibly have been waved home.
     case "1B":
@@ -462,6 +553,7 @@ export function needsReview(state: GameState, draft: PlayDraft): boolean {
     // Routine outs: a run can only score from third with fewer than two outs.
     case "GO":
     case "FO":
+    case "PF":
     case "LO":
     case "PO":
       return Boolean(state.bases[3]) && state.outs < 2;

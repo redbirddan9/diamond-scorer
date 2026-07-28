@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getGame, saveGame } from "./storage/games";
 import { reduceEvents } from "./scoring/engine";
-import type { GameEvent, GameStatus, StoredGame } from "./scoring/types";
+import type { GameEvent, GameSetup, GameStatus, StoredGame } from "./scoring/types";
 
 /**
  * Live game session: owns the event log, derives state through the rules
@@ -57,6 +57,15 @@ export function useGame(id: string) {
     [events, persist],
   );
 
+  /** Commit several events atomically (e.g. an ABS call that ends the at-bat). */
+  const commitMany = useCallback(
+    (batch: GameEvent[]) => {
+      setRedo([]);
+      persist([...events, ...batch]);
+    },
+    [events, persist],
+  );
+
   const undo = useCallback(() => {
     if (!events.length) return;
     const last = events[events.length - 1];
@@ -89,6 +98,20 @@ export function useGame(id: string) {
     [events, persist],
   );
 
+  /** Edit game metadata (ballpark, umpires, attendance, notes…) after the fact. */
+  const updateSetup = useCallback((patch: Partial<GameSetup>) => {
+    setGame((current) => {
+      if (!current) return current;
+      const updated = {
+        ...current,
+        setup: { ...current.setup, ...patch },
+        updatedAt: new Date().toISOString(),
+      };
+      void saveGame(updated);
+      return updated;
+    });
+  }, []);
+
   return {
     loading,
     game,
@@ -97,11 +120,13 @@ export function useGame(id: string) {
     canUndo: events.length > 0,
     canRedo: redo.length > 0,
     commit,
+    commitMany,
     undo,
     redo: redoLast,
     replaceEvent,
     deleteEvent,
     setStatus,
+    updateSetup,
   };
 }
 

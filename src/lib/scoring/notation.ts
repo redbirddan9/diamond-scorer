@@ -3,6 +3,7 @@ import type { LoggedPlay, PlayResult } from "./types";
 
 const FIELDER_OUT_PREFIX: Record<string, string> = {
   FO: "F",
+  PF: "PF",
   LO: "L",
   PO: "P",
 };
@@ -12,6 +13,7 @@ export const RESULT_LABELS: Record<PlayResult, string> = {
   "2B": "Double",
   "3B": "Triple",
   HR: "Home Run",
+  GRD: "Ground Rule Double",
   K_SWING: "Strikeout Swinging",
   K_LOOK: "Strikeout Looking",
   BB: "Walk",
@@ -22,7 +24,8 @@ export const RESULT_LABELS: Record<PlayResult, string> = {
   SF: "Sacrifice Fly",
   SH: "Sacrifice Bunt",
   GO: "Ground Out",
-  FO: "Fly Out",
+  FO: "Foul Out",
+  PF: "Pop Foul Out",
   LO: "Line Out",
   PO: "Pop Out",
   DP: "Double Play",
@@ -30,15 +33,13 @@ export const RESULT_LABELS: Record<PlayResult, string> = {
   CI: "Catcher's Interference",
   OBSTRUCTION: "Obstruction",
   INTERFERENCE: "Interference",
-  APPEAL: "Appeal Play",
-  OTHER: "Other",
 };
 
 /** Short scorebook notation, e.g. `6-3`, `F8`, `K`, `ꓘ`, `1B`, `E6`. */
 export function notationFor(play: {
   result: PlayResult;
   fielders: number[];
-  errorFielder?: number | null;
+  errorFielders?: number[];
 }): string {
   const f = play.fielders;
   switch (play.result) {
@@ -47,6 +48,8 @@ export function notationFor(play: {
     case "3B":
     case "HR":
       return play.result;
+    case "GRD":
+      return "GRD";
     case "K_SWING":
       return "K";
     case "K_LOOK":
@@ -57,8 +60,10 @@ export function notationFor(play: {
       return "IBB";
     case "HBP":
       return "HBP";
-    case "E":
-      return `E${play.errorFielder ?? f[0] ?? ""}`;
+    case "E": {
+      const errs = play.errorFielders?.length ? play.errorFielders : f;
+      return errs.length ? errs.map((n) => `E${n}`).join(" ") : "E";
+    }
     case "FC":
       return f.length ? `FC ${f.join("-")}` : "FC";
     case "SF":
@@ -66,8 +71,11 @@ export function notationFor(play: {
     case "SH":
       return f.length ? `SAC ${f.join("-")}` : "SAC";
     case "GO":
-      return f.length ? f.join("-") : "GO";
+      // A single fielder recorded the out unassisted, e.g. "3u".
+      if (!f.length) return "GO";
+      return f.length === 1 ? `${f[0]}u` : f.join("-");
     case "FO":
+    case "PF":
     case "LO":
     case "PO":
       return f.length ? `${FIELDER_OUT_PREFIX[play.result]}${f[0]}` : play.result;

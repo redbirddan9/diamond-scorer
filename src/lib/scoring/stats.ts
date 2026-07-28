@@ -199,7 +199,7 @@ export function fieldingStats(state: GameState, side: TeamSide): FieldingLine[] 
       f.slice(0, -1).forEach((pos) => (get(pos).a += 1));
     }
     if (isStrikeout(play.result)) get(2).po += 1;
-    if (play.errorFielder) get(play.errorFielder).e += 1;
+    for (const pos of play.errorFielders ?? []) get(pos).e += 1;
     if (play.result === "DP" || play.result === "TP") f.forEach((pos) => (get(pos).dp += 1));
   }
 

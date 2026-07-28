@@ -111,3 +111,65 @@ describe("rules engine", () => {
     expect(b.plays.length).toBe(a.plays.length);
   });
 });
+describe("extra innings, game end and ABS challenges", () => {
+  const short: GameSetup = { ...setup, innings: 1 };
+
+  function runWith(s: GameSetup, results: PlayResult[]) {
+    const events: GameEvent[] = [];
+    let state = createInitialState(s);
+    for (const r of results) {
+      const draft = proposePlay(state, r);
+      events.push({ ...draft, id: `x${seq++}`, ts: "" } as GameEvent);
+      state = reduceEvents(s, events);
+    }
+    return state;
+  }
+
+  it("places an automatic runner on second in extra innings", () => {
+    // 1-inning game, both teams go in order -> extras.
+    const state = runWith(short, ["GO", "GO", "GO", "GO", "GO", "GO"]);
+    expect(state.inning).toBe(2);
+    expect(state.over).toBe(false);
+    expect(state.bases[2]).toBe("A3");
+    expect(state.ghostRunner).toBe("A3");
+  });
+
+  it("ends the game when the home team leads after the last inning", () => {
+    const state = runWith(short, ["GO", "GO", "GO", "HR"]);
+    expect(state.over).toBe(true);
+    expect(state.winner).toBe("home");
+  });
+
+  it("charges an error for every fielder selected", () => {
+    let state = createInitialState(setup);
+    const draft = proposePlay(state, "E", [6, 3]);
+    state = reduceEvents(setup, [{ ...draft, id: "e-err", ts: "" } as GameEvent]);
+    expect(state.errors.home).toBe(2);
+  });
+
+  it("keeps the challenge when a call is overturned and adds to the count", () => {
+    const state = reduceEvents(setup, [
+      { id: "a1", type: "abs", ts: "", caller: "batter", outcome: "strike-overturned" },
+      { id: "a2", type: "abs", ts: "", caller: "pitcher", outcome: "ball-confirmed" },
+    ]);
+    expect(state.challenges.away).toBe(2); // overturned: retained
+    expect(state.challenges.home).toBe(1); // stands: used
+    expect(state.balls).toBe(2);
+  });
+
+  it("grants a challenge in extras to a team that has none left", () => {
+    const events: GameEvent[] = [
+      { id: "b1", type: "abs", ts: "", caller: "batter", outcome: "strike-confirmed" },
+      { id: "b2", type: "abs", ts: "", caller: "batter", outcome: "strike-confirmed" },
+    ];
+    let state = reduceEvents(short, events);
+    expect(state.challenges.away).toBe(0);
+    for (const r of ["GO", "GO", "GO", "GO", "GO", "GO"] as PlayResult[]) {
+      const draft = proposePlay(state, r);
+      events.push({ ...draft, id: `y${seq++}`, ts: "" } as GameEvent);
+      state = reduceEvents(short, events);
+    }
+    expect(state.inning).toBe(2);
+    expect(state.challenges.away).toBe(1);
+  });
+});

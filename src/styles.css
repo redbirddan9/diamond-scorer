@@ -19,6 +19,9 @@
  */
 
 @theme inline {
+  --font-sans: "Karla", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Bitter", ui-serif, Georgia, serif;
+  --font-mono: "Courier Prime", ui-monospace, "Courier New", monospace;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -152,5 +155,25 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-sans);
+    /* Tuned for a 7-8" touchscreen at ~1024x600. */
+    font-size: 15px;
+    letter-spacing: 0.005em;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-serif);
+    letter-spacing: -0.01em;
+  }
+
+  button,
+  input,
+  select,
+  textarea,
+  th {
+    font-family: inherit;
   }
 }

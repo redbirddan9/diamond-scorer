@@ -154,15 +154,56 @@ function endHalfInning(state: GameState) {
   state.outs = 0;
   state.balls = 0;
   state.strikes = 0;
+  const regulation = state.setup.innings;
   if (state.half === "top") {
     state.half = "bottom";
+    // Home team wins without batting in the bottom half.
+    if (state.inning >= regulation && state.score.home > state.score.away) {
+      state.over = true;
+      state.winner = "home";
+      return;
+    }
   } else {
     state.half = "top";
     state.inning += 1;
+    if (state.inning > regulation && state.score.home !== state.score.away) {
+      state.over = true;
+      state.winner = state.score.home > state.score.away ? "home" : "away";
+      return;
+    }
+    // Extra innings: teams with no challenges left get one for this inning.
+    if (state.inning > regulation) {
+      if (state.challenges.away === 0) state.challenges.away = 1;
+      if (state.challenges.home === 0) state.challenges.home = 1;
+    }
   }
-  const regulation = state.setup.innings;
-  if (state.inning > regulation && state.score.home !== state.score.away) {
+  placeGhostRunner(state);
+}
+
+/**
+ * Extra-innings automatic runner: the player who made the last out of the
+ * previous inning (i.e. the batter directly preceding the leadoff hitter)
+ * starts at second base.
+ */
+function placeGhostRunner(state: GameState) {
+  state.ghostRunner = null;
+  if (state.inning <= state.setup.innings || state.over) return;
+  const side = battingSide(state);
+  const order = state.lineup[side];
+  if (!order.length) return;
+  const runnerId = order[(state.slot[side] - 1 + order.length) % order.length];
+  state.bases[2] = runnerId;
+  state.ghostRunner = runnerId;
+}
+
+function checkWalkOff(state: GameState) {
+  if (
+    state.half === "bottom" &&
+    state.inning >= state.setup.innings &&
+    state.score.home > state.score.away
+  ) {
     state.over = true;
+    state.winner = "home";
   }
 }
 
@@ -222,7 +263,7 @@ function applyPlay(prev: GameState, ev: PlayEvent): GameState {
   const pitchCount = state.balls + state.strikes;
 
   if (isHit(ev.result)) state.hits[offense] += 1;
-  if (ev.errorFielder) state.errors[defense] += 1;
+  state.errors[defense] += (ev.errorFielders ?? []).length;
 
   const { outs, scored } = applyMovement(state, ev.advances, ev.batterId, ev.batterTo);
   state.outs += outs;
@@ -248,14 +289,23 @@ function applyPlay(prev: GameState, ev: PlayEvent): GameState {
 
   if (state.outs >= 3) {
     endHalfInning(state);
-  } else if (
-    state.half === "bottom" &&
-    state.inning >= state.setup.innings &&
-    state.score.home > state.score.away
-  ) {
-    state.over = true;
+  } else {
+    checkWalkOff(state);
   }
   return state;
+}
+
+/** How the count changes when an ABS challenge is resolved. */
+export function absCountResult(outcome: AbsEvent["outcome"]): "ball" | "strike" {
+  return outcome === "ball-confirmed" || outcome === "strike-overturned" ? "ball" : "strike";
+}
+
+export function absTeam(caller: AbsEvent["caller"], state: GameState): TeamSide {
+  return caller === "batter" ? battingSide(state) : fieldingSide(state);
+}
+
+export function absRetained(outcome: AbsEvent["outcome"]): boolean {
+  return outcome.endsWith("overturned");
 }
 
 export function applyEvent(prev: GameState, ev: GameEvent): GameState {
@@ -274,6 +324,26 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
       const { outs } = applyMovement(state, ev.advances, null, null);
       state.outs += outs;
       if (state.outs >= 3) endHalfInning(state);
+      else checkWalkOff(state);
+      return state;
+    }
+    case "abs": {
+      const state = clone(prev);
+      const team = absTeam(ev.caller, state);
+      const retained = absRetained(ev.outcome);
+      if (!retained) state.challenges[team] = Math.max(0, state.challenges[team] - 1);
+      state.absLog.push({
+        inning: state.inning,
+        half: state.half,
+        team,
+        caller: ev.caller,
+        outcome: ev.outcome,
+        retained,
+      });
+      const pitcherId = state.pitcher[fieldingSide(state)];
+      state.pitchesThrown[pitcherId] = (state.pitchesThrown[pitcherId] ?? 0) + 1;
+      if (absCountResult(ev.outcome) === "ball") state.balls = Math.min(state.balls + 1, 3);
+      else state.strikes = Math.min(state.strikes + 1, 2);
       return state;
     }
     case "sub": {

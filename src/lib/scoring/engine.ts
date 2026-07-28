@@ -527,6 +527,9 @@ export function needsReview(state: GameState, draft: PlayDraft): boolean {
     case "HR":
     case "3B":
       return false;
+    // Ground rule double: the award is fixed by rule, never a judgement call.
+    case "GRD":
+      return false;
     // Ball in play with the batter reaching: a trailing runner stopped at
     // third could plausibly have been waved home.
     case "1B":
@@ -545,6 +548,7 @@ export function needsReview(state: GameState, draft: PlayDraft): boolean {
     // Routine outs: a run can only score from third with fewer than two outs.
     case "GO":
     case "FO":
+    case "PF":
     case "LO":
     case "PO":
       return Boolean(state.bases[3]) && state.outs < 2;

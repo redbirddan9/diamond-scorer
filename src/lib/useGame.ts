@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getGame, saveGame } from "./storage/games";
 import { reduceEvents } from "./scoring/engine";
-import type { GameEvent, GameStatus, StoredGame } from "./scoring/types";
+import type { GameEvent, GameSetup, GameStatus, StoredGame } from "./scoring/types";
 
 /**
  * Live game session: owns the event log, derives state through the rules
@@ -89,6 +89,20 @@ export function useGame(id: string) {
     [events, persist],
   );
 
+  /** Edit game metadata (ballpark, umpires, attendance, notes…) after the fact. */
+  const updateSetup = useCallback((patch: Partial<GameSetup>) => {
+    setGame((current) => {
+      if (!current) return current;
+      const updated = {
+        ...current,
+        setup: { ...current.setup, ...patch },
+        updatedAt: new Date().toISOString(),
+      };
+      void saveGame(updated);
+      return updated;
+    });
+  }, []);
+
   return {
     loading,
     game,
@@ -102,6 +116,7 @@ export function useGame(id: string) {
     replaceEvent,
     deleteEvent,
     setStatus,
+    updateSetup,
   };
 }
 

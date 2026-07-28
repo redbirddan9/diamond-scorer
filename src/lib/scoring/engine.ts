@@ -87,6 +87,9 @@ export function createInitialState(setup: GameSetup): GameState {
     pitcher: { away: setup.away.pitcherId, home: setup.home.pitcherId },
     pitchesThrown: {},
     positions: { away: positions("away"), home: positions("home") },
+    playerNames: Object.fromEntries(
+      [...setup.away.players, ...setup.home.players].map((p) => [p.id, p.name]),
+    ),
     plays: [],
     over: false,
     challenges: { away: 2, home: 2 },
@@ -128,6 +131,7 @@ function clone(state: GameState): GameState {
     pitcher: { ...state.pitcher },
     pitchesThrown: { ...state.pitchesThrown },
     positions: { away: { ...state.positions.away }, home: { ...state.positions.home } },
+    playerNames: { ...state.playerNames },
     plays: [...state.plays],
     challenges: { ...state.challenges },
     absLog: [...state.absLog],
@@ -349,6 +353,7 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
     case "sub": {
       const state = clone(prev);
       const order = state.lineup[ev.team];
+      if (ev.inPlayerName) state.playerNames[ev.inPlayerId] = ev.inPlayerName;
       if (typeof ev.slot === "number" && ev.slot >= 0 && ev.slot < order.length) {
         order[ev.slot] = ev.inPlayerId;
       } else {

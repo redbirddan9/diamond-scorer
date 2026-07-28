@@ -414,7 +414,7 @@ export function proposePlay(
   const batterId = currentBatterId(state);
   const advances: Advance[] = [];
   let batterTo: Destination = "out";
-  let errorFielder: number | null = null;
+  let errorFielders: number[] = [];
 
   const push = (from: Base, to: Destination, reason: Advance["reason"]) => {
     const runnerId = state.bases[from];
@@ -427,6 +427,11 @@ export function proposePlay(
       occupied(state).forEach((b) => push(b, advanceBy(b, 1), "hit"));
       break;
     case "2B":
+      batterTo = 2;
+      occupied(state).forEach((b) => push(b, advanceBy(b, 2), "hit"));
+      break;
+    case "GRD":
+      // Ground rule double: two-base award for the batter and every runner.
       batterTo = 2;
       occupied(state).forEach((b) => push(b, advanceBy(b, 2), "hit"));
       break;
@@ -449,7 +454,7 @@ export function proposePlay(
       break;
     case "E":
       batterTo = 1;
-      errorFielder = fielders[0] ?? null;
+      errorFielders = [...fielders];
       occupied(state).forEach((b) => push(b, advanceBy(b, 1), "error"));
       break;
     case "FC": {
@@ -492,8 +497,8 @@ export function proposePlay(
     batterTo,
     advances,
     rbi,
-    errorFielder,
-    earnedRuns: !errorFielder,
+    errorFielders,
+    earnedRuns: errorFielders.length === 0,
   };
 }
 

@@ -212,6 +212,8 @@ export interface GameState {
   pitcher: Record<TeamSide, string>;
   pitchesThrown: Record<string, number>;
   positions: Record<TeamSide, Record<string, string>>;
+  /** Every player id seen so far (rosters plus substitutes) mapped to a name. */
+  playerNames: Record<string, string>;
   plays: LoggedPlay[];
   over: boolean;
   /** ABS challenges remaining for each team. */

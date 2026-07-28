@@ -19,6 +19,9 @@
  */
 
 @theme inline {
+  --font-sans: "Karla", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Bitter", ui-serif, Georgia, serif;
+  --font-mono: "Courier Prime", ui-monospace, "Courier New", monospace;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);

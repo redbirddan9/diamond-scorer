@@ -6,6 +6,7 @@
  * simply "drop/replace the event and replay".
  */
 import type {
+  AbsEvent,
   Advance,
   Base,
   Destination,
@@ -23,6 +24,7 @@ export const BATTER_OUT_RESULTS: PlayResult[] = [
   "K_LOOK",
   "GO",
   "FO",
+  "PF",
   "LO",
   "PO",
   "DP",
@@ -31,7 +33,7 @@ export const BATTER_OUT_RESULTS: PlayResult[] = [
   "SH",
 ];
 
-export const HIT_RESULTS: PlayResult[] = ["1B", "2B", "3B", "HR"];
+export const HIT_RESULTS: PlayResult[] = ["1B", "2B", "3B", "HR", "GRD"];
 
 export function isHit(result: PlayResult) {
   return HIT_RESULTS.includes(result);

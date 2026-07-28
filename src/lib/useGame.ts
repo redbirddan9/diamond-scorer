@@ -57,6 +57,15 @@ export function useGame(id: string) {
     [events, persist],
   );
 
+  /** Commit several events atomically (e.g. an ABS call that ends the at-bat). */
+  const commitMany = useCallback(
+    (batch: GameEvent[]) => {
+      setRedo([]);
+      persist([...events, ...batch]);
+    },
+    [events, persist],
+  );
+
   const undo = useCallback(() => {
     if (!events.length) return;
     const last = events[events.length - 1];
@@ -111,6 +120,7 @@ export function useGame(id: string) {
     canUndo: events.length > 0,
     canRedo: redo.length > 0,
     commit,
+    commitMany,
     undo,
     redo: redoLast,
     replaceEvent,

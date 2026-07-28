@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { createGame, loadTemplates, saveTemplate } from "@/lib/storage/games";
+import { PositionGrid } from "@/components/scorebook/PositionGrid";
 import { newId } from "@/lib/useGame";
 import type { GameSetup, Player, TeamSetup } from "@/lib/scoring/types";
 
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/new")({
   component: NewGame,
 });
 
-export const POSITION_OPTIONS = ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH"];
+export const POSITION_OPTIONS = ["DH", "C", "1B", "2B", "SS", "3B", "LF", "CF", "RF"];
 
 function blankRoster(prefix: string): Player[] {
   return Array.from({ length: 9 }, (_, i) => ({
@@ -248,6 +249,7 @@ function RosterEditor({
 }) {
   const update = (index: number, patch: Partial<Player>) =>
     onChange(players.map((p, i) => (i === index ? { ...p, ...patch } : p)));
+  const [openPos, setOpenPos] = useState<number | null>(null);
 
   return (
     <section className="mt-6 space-y-2">
@@ -284,27 +286,36 @@ function RosterEditor({
       </div>
       <ul className="space-y-1.5">
         {players.map((p, i) => (
-          <li key={p.id} className="grid grid-cols-[minmax(0,1fr)_6rem] items-center gap-2">
-            <Input
-              className="h-11"
-              value={p.name}
-              placeholder={`Player ${i + 1}`}
-              aria-label="Player name"
-              onChange={(e) => update(i, { name: e.target.value })}
-            />
-            <select
-              className="h-11 rounded-md border border-input bg-background px-2 text-sm"
-              value={p.position}
-              aria-label="Position"
-              onChange={(e) => update(i, { position: e.target.value })}
-            >
-              <option value=""></option>
-              {POSITION_OPTIONS.map((pos) => (
-                <option key={pos} value={pos}>
-                  {pos}
-                </option>
-              ))}
-            </select>
+          <li key={p.id} className="space-y-1">
+            <div className="grid grid-cols-[minmax(0,1fr)_6rem] items-center gap-2">
+              <Input
+                className="h-11"
+                value={p.name}
+                placeholder={`Player ${i + 1}`}
+                aria-label="Player name"
+                onChange={(e) => update(i, { name: e.target.value })}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                aria-label="Position"
+                className="h-11 font-medium"
+                onClick={() => setOpenPos(openPos === i ? null : i)}
+              >
+                {p.position || "Pos"}
+              </Button>
+            </div>
+            {openPos === i && (
+              <div className="rounded-md border border-border p-2">
+                <PositionGrid
+                  value={p.position}
+                  onChange={(pos) => {
+                    update(i, { position: pos });
+                    setOpenPos(null);
+                  }}
+                />
+              </div>
+            )}
           </li>
         ))}
       </ul>

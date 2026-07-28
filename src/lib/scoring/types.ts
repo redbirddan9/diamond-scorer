@@ -58,6 +58,7 @@ export type PlayResult =
   | "2B"
   | "3B"
   | "HR"
+  | "GRD"
   | "K_SWING"
   | "K_LOOK"
   | "BB"
@@ -69,15 +70,14 @@ export type PlayResult =
   | "SH"
   | "GO"
   | "FO"
+  | "PF"
   | "LO"
   | "PO"
   | "DP"
   | "TP"
   | "CI"
   | "OBSTRUCTION"
-  | "INTERFERENCE"
-  | "APPEAL"
-  | "OTHER";
+  | "INTERFERENCE";
 
 export type AdvanceReason =
   | "hit"
@@ -118,7 +118,8 @@ export interface PlayEvent {
   batterTo: Destination;
   advances: Advance[];
   rbi: number;
-  errorFielder?: number | null;
+  /** Every fielder charged with an error on the play. */
+  errorFielders?: number[];
   earnedRuns?: boolean;
   note?: string;
 }
@@ -148,9 +149,40 @@ export interface SubEvent {
   /** 0-based batting order slot; omitted for pure defensive swaps. */
   slot?: number;
   position?: string;
+  /** What kind of substitution this is. */
+  kind?: "PH" | "PR" | "P" | "DEF";
+  /** For pinch runners: the base the replaced runner occupied. */
+  base?: Base;
+  /** Display name of the incoming player (rosters are open-ended). */
+  inPlayerName?: string;
 }
 
-export type GameEvent = PlayEvent | RunnerEvent | PitchEvent | SubEvent;
+export type AbsCaller = "pitcher" | "catcher" | "batter";
+export type AbsOutcome =
+  | "ball-confirmed"
+  | "ball-overturned"
+  | "strike-confirmed"
+  | "strike-overturned";
+
+/** Automated Ball-Strike challenge. */
+export interface AbsEvent {
+  id: string;
+  type: "abs";
+  ts: string;
+  caller: AbsCaller;
+  outcome: AbsOutcome;
+}
+
+export type GameEvent = PlayEvent | RunnerEvent | PitchEvent | SubEvent | AbsEvent;
+
+export interface AbsChallengeLog {
+  inning: number;
+  half: Half;
+  team: TeamSide;
+  caller: AbsCaller;
+  outcome: AbsOutcome;
+  retained: boolean;
+}
 
 export interface LoggedPlay extends PlayEvent {
   inning: number;
@@ -182,6 +214,12 @@ export interface GameState {
   positions: Record<TeamSide, Record<string, string>>;
   plays: LoggedPlay[];
   over: boolean;
+  /** ABS challenges remaining for each team. */
+  challenges: Record<TeamSide, number>;
+  absLog: AbsChallengeLog[];
+  /** Extra-innings automatic runner, per half inning. */
+  ghostRunner: string | null;
+  winner: TeamSide | null;
 }
 
 export type GameStatus = "in-progress" | "final" | "archived";

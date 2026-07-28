@@ -129,7 +129,6 @@ function clone(state: GameState): GameState {
     pitchesThrown: { ...state.pitchesThrown },
     positions: { away: { ...state.positions.away }, home: { ...state.positions.home } },
     plays: [...state.plays],
-    score: { ...state.score },
     challenges: { ...state.challenges },
     absLog: [...state.absLog],
   };

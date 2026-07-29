@@ -1,49 +1,65 @@
-import { notationFor } from "@/lib/scoring/notation";
-import type { GameState, LoggedPlay, TeamSide } from "@/lib/scoring/types";
+import { notationParts } from "@/lib/scoring/notation";
+import { buildScorecard, type CellModel, type RowModel } from "@/lib/scoring/scorecard";
+import type { GameState, TeamSide } from "@/lib/scoring/types";
 import { cn } from "@/lib/utils";
 
 interface Props {
   state: GameState;
   side: TeamSide;
+  /** Highlight the slot currently at bat. */
+  activeSlot?: number | null;
 }
 
 /** Traditional paper-scorebook grid: batting order rows × inning columns. */
-export function ScorebookGrid({ state, side }: Props) {
+export function ScorebookGrid({ state, side, activeSlot }: Props) {
   const innings = Math.max(state.setup.innings, state.inning);
-  const order = state.lineup[side];
-  const playerName = (id: string) =>
-    state.setup[side].players.find((p) => p.id === id)?.name ?? id;
-  const playerNumber = (id: string) =>
-    state.setup[side].players.find((p) => p.id === id)?.number ?? "";
-
-  const cellFor = (slot: number, inning: number) =>
-    state.plays.find((p) => p.battingTeam === side && p.slot === slot && p.inning === inning);
+  const rows = buildScorecard(state, side);
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-xs">
+      <table className="w-full border-collapse text-[11px]">
         <thead>
           <tr>
-            <th className="sticky left-0 z-10 min-w-40 border border-border bg-secondary p-2 text-left font-semibold">
+            <th className="sticky left-0 z-10 w-36 border border-border bg-secondary p-1 text-left font-semibold">
               {state.setup[side].name}
             </th>
             {Array.from({ length: innings }, (_, i) => (
-              <th key={i} className="w-20 border border-border bg-secondary p-2 font-mono">
+              <th key={i} className="w-14 border border-border bg-secondary p-1 font-mono">
                 {i + 1}
+              </th>
+            ))}
+            {["AB", "R", "H", "RBI"].map((h) => (
+              <th key={h} className="w-8 border border-border bg-secondary p-1 font-semibold">
+                {h}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {order.map((playerId, slot) => (
-            <tr key={`${playerId}-${slot}`}>
-              <th className="sticky left-0 z-10 border border-border bg-card p-2 text-left font-normal">
-                <span className="mr-2 font-mono text-muted-foreground">{playerNumber(playerId)}</span>
-                <span className="font-medium">{playerName(playerId)}</span>
+          {rows.map((row) => (
+            <tr key={row.slot}>
+              <th
+                className={cn(
+                  "sticky left-0 z-10 border border-border bg-card p-1 text-left font-normal",
+                  activeSlot === row.slot && "bg-field/60",
+                )}
+              >
+                <NameBox row={row} />
               </th>
               {Array.from({ length: innings }, (_, i) => (
-                <td key={i} className="h-20 w-20 border border-border p-0 align-top">
-                  <ScoreCell play={cellFor(slot, i + 1)} />
+                <td
+                  key={i}
+                  className={cn(
+                    "h-14 w-14 border border-border p-0 align-top",
+                    row.boundaryInning === i + 1 && "border-l-[3px] border-l-ink",
+                  )}
+                >
+                  <ScoreCell cell={row.cells[i + 1]} />
+                </td>
+              ))}
+              {[row.ab, row.r, row.h, row.rbi].map((v, i) => (
+                <td key={i} className="border border-border p-1 text-center font-mono">
+                  {v}
                 </td>
               ))}
             </tr>
@@ -54,56 +70,58 @@ export function ScorebookGrid({ state, side }: Props) {
   );
 }
 
-function ScoreCell({ play }: { play?: LoggedPlay }) {
-  const reached = play && play.batterTo !== "out";
-  const scored = play?.runsScored.includes(play.batterId);
-  const basesReached =
-    play?.batterTo === "out"
-      ? 0
-      : play?.batterTo === 4
-        ? 4
-        : typeof play?.batterTo === "number"
-          ? play.batterTo
-          : 0;
+function NameBox({ row }: { row: RowModel }) {
+  return (
+    <div className="space-y-0.5">
+      {row.names.map((n, i) => {
+        const replaced = i < row.names.length - 1;
+        return (
+          <div key={n.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-1">
+            <span className={cn("truncate", replaced ? "line-through opacity-60" : "font-medium")}>
+              {n.name}
+              {n.inning ? ` (${n.inning})` : ""}
+            </span>
+            <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+              {n.position}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ScoreCell({ cell }: { cell?: CellModel }) {
+  if (!cell) return <div className="h-full w-full" />;
+  const { play, base, scored, outNumber, pitcherChange } = cell;
+  const marks = notationParts(play);
 
   return (
-    <div className="relative h-full w-full p-1">
+    <div className="relative h-full w-full">
       <svg viewBox="0 0 60 60" className="absolute inset-0 h-full w-full">
-        <path
-          d="M30 52 L10 32 L30 12 L50 32 Z"
-          className={cn("fill-none stroke-border")}
-          strokeWidth="1"
-        />
-        {play && basesReached >= 1 && (
-          <path d="M30 52 L50 32" className="stroke-ink" strokeWidth="2.5" fill="none" />
-        )}
-        {play && basesReached >= 2 && (
-          <path d="M50 32 L30 12" className="stroke-ink" strokeWidth="2.5" fill="none" />
-        )}
-        {play && basesReached >= 3 && (
-          <path d="M30 12 L10 32" className="stroke-ink" strokeWidth="2.5" fill="none" />
-        )}
+        <path d="M30 52 L10 32 L30 12 L50 32 Z" className="fill-none stroke-border" strokeWidth="1" />
         {scored && (
-          <>
-            <path d="M10 32 L30 52" className="stroke-ink" strokeWidth="2.5" fill="none" />
-            <path d="M30 52 L10 32 L30 12 L50 32 Z" className="fill-field/70 stroke-none" />
-          </>
+          <path d="M30 52 L10 32 L30 12 L50 32 Z" className="fill-field/70 stroke-none" />
         )}
+        {base >= 1 && <path d="M30 52 L50 32" className="stroke-ink" strokeWidth="2.5" fill="none" />}
+        {base >= 2 && <path d="M50 32 L30 12" className="stroke-ink" strokeWidth="2.5" fill="none" />}
+        {base >= 3 && <path d="M30 12 L10 32" className="stroke-ink" strokeWidth="2.5" fill="none" />}
+        {base >= 4 && <path d="M10 32 L30 52" className="stroke-ink" strokeWidth="2.5" fill="none" />}
+        {pitcherChange && <path d="M60 60 L60 44 L44 60 Z" className="fill-ink" />}
       </svg>
-      <div className="relative flex h-full flex-col items-center justify-center">
-        <span className="font-mono text-[11px] font-bold leading-none">
-          {play ? notationFor(play) : ""}
+      <div className="relative flex h-full flex-col items-center justify-center leading-none">
+        <span className="font-mono text-[13px] font-bold">
+          {marks.main}
+          {marks.sub && <sub className="text-[9px] font-semibold">{marks.sub}</sub>}
         </span>
-        {play && play.rbi > 0 && (
-          <span className="mt-0.5 text-[9px] text-muted-foreground">{play.rbi} RBI</span>
-        )}
+        {marks.below && <span className="font-mono text-[9px] font-bold">{marks.below}</span>}
+        {play.rbi > 0 && <span className="text-[8px] text-muted-foreground">{play.rbi} RBI</span>}
       </div>
-      {play && play.batterTo === "out" && (
-        <span className="absolute bottom-0.5 right-1 font-mono text-[9px] text-pencil">
-          {play.outsBefore + 1}
+      {outNumber && (
+        <span className="absolute bottom-0 left-0.5 font-mono text-[9px] text-pencil">
+          {outNumber}
         </span>
       )}
-      {!reached && !play && <span className="sr-only">no plate appearance</span>}
     </div>
   );
 }

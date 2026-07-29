@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronLeft, Download, FileJson, Printer, Redo2, Undo2, Users } from "lucide-react";
+import { ChevronLeft, Download, FileJson, Printer, Redo2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Diamond } from "@/components/scorebook/Diamond";
@@ -16,7 +16,6 @@ import { useGame, newId } from "@/lib/useGame";
 import {
   absCountResult,
   battingSide,
-  batterAtOffset,
   currentBatterId,
   fieldingSide,
   needsReview,
@@ -33,6 +32,7 @@ import type {
   PlayResult,
   TeamSide,
 } from "@/lib/scoring/types";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/game/$gameId")({
   head: () => ({
@@ -62,6 +62,7 @@ function GameScreen() {
 
   const state = session.state;
   const over = Boolean(state?.over);
+  const trackPitches = Boolean(state?.setup.trackPitches);
 
   // Games end themselves once the rules say so.
   useEffect(() => {
@@ -87,7 +88,7 @@ function GameScreen() {
 
   const pitch = useCallback(
     (call: "ball" | "strike" | "foul") => {
-      if (!state || draft) return;
+      if (!state || draft || state.over) return;
       if (call === "ball" && state.balls === 3) {
         startPlay("BB");
         return;
@@ -116,7 +117,7 @@ function GameScreen() {
         e.preventDefault();
         return;
       }
-      if (mode !== "play" || draft || menuDepth > 0 || over) return;
+      if (!trackPitches || mode !== "play" || draft || menuDepth > 0 || over) return;
       if (k === "b") pitch("ball");
       else if (k === "s") pitch("strike");
       else if (k === "f") pitch("foul");
@@ -125,7 +126,7 @@ function GameScreen() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pitch, startPlay, strikeThree, mode, draft, menuDepth, over]);
+  }, [pitch, startPlay, strikeThree, mode, draft, menuDepth, over, trackPitches]);
 
   if (session.loading) {
     return <p className="p-6 text-sm text-muted-foreground">Loading scorebook…</p>;
@@ -144,6 +145,7 @@ function GameScreen() {
   const defense = fieldingSide(state);
   const offense = battingSide(state);
   const nameOf = (id: string) => state.playerNames[id] ?? id;
+  const activeSlot = state.slot[offense] % Math.max(state.lineup[offense].length, 1);
 
   const finalize = () => {
     if (!draft) return;
@@ -165,72 +167,52 @@ function GameScreen() {
   };
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-[1024px] px-2 pb-6 pt-2">
-      <header className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 print:hidden">
-        <Button asChild variant="ghost" size="icon" className="h-10 w-10">
+    <main className="mx-auto min-h-screen w-full max-w-[820px] px-1.5 pb-4 pt-1.5">
+      <header className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 print:hidden">
+        <Button asChild variant="ghost" size="icon" className="h-8 w-8">
           <Link to="/" aria-label="Back to library">
             <ChevronLeft className="h-5 w-5" />
           </Link>
         </Button>
-        <div className="min-w-0 text-center">
-          <p className="truncate text-sm font-semibold">
-            {state.setup.away.name} at {state.setup.home.name}
-          </p>
-          <p className="truncate text-xs text-muted-foreground">
-            {state.setup.date}
-            {state.setup.stadium ? ` · ${state.setup.stadium}` : ""}
-          </p>
-        </div>
+        <p className="truncate text-center text-xs text-muted-foreground">
+          {state.setup.date}
+          {state.setup.stadium ? ` · ${state.setup.stadium}` : ""}
+          {state.setup.city ? `, ${state.setup.city}` : ""}
+        </p>
         <ThemeToggle />
       </header>
 
-      <Scoreboard state={state} />
+      <Scoreboard state={state} trackPitches={trackPitches} />
 
-      <Tabs defaultValue={over ? "summary" : "score"} className="mt-2">
-        <TabsList className="grid w-full grid-cols-5 print:hidden">
-          <TabsTrigger value="score" disabled={over}>
-            Score
-          </TabsTrigger>
-          <TabsTrigger value="book">Scorebook</TabsTrigger>
-          <TabsTrigger value="box">Box</TabsTrigger>
-          <TabsTrigger value="plays">Plays</TabsTrigger>
-          <TabsTrigger value="summary">Summary</TabsTrigger>
-        </TabsList>
+      {over && (
+        <div className="mt-1.5 rounded-md border border-border bg-secondary px-3 py-1.5 text-center">
+          <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Final</span>
+          <span className="ml-2 text-sm font-semibold">
+            {state.winner ? `${state.setup[state.winner].name} win` : "Tie game"} —{" "}
+            {state.setup.away.name} {state.score.away}, {state.setup.home.name} {state.score.home}
+          </span>
+        </div>
+      )}
 
-        <TabsContent value="score" className="mt-2 space-y-3">
-          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-md border border-border bg-card p-2">
+      {!over && (
+        <section className="mt-1.5 space-y-1.5">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-md border border-border bg-card p-1.5">
             <Diamond
               first={Boolean(state.bases[1])}
               second={Boolean(state.bases[2])}
               third={Boolean(state.bases[3])}
-              size={96}
+              size={64}
             />
-            <div className="min-w-0 space-y-0.5 text-sm">
+            <div className="min-w-0 text-sm">
               <p className="truncate">
                 <span className="text-muted-foreground">At bat </span>
-                <span className="font-semibold">{nameOf(currentBatterId(state))}</span>
-              </p>
-              <p className="truncate text-muted-foreground">
-                On deck {nameOf(batterAtOffset(state, 1))} · In the hole{" "}
-                {nameOf(batterAtOffset(state, 2))}
-              </p>
-              <p className="truncate">
-                <span className="text-muted-foreground">Pitching </span>
-                {nameOf(state.pitcher[defense])} ·{" "}
-                {state.pitchesThrown[state.pitcher[defense]] ?? 0} P
+                <span className="text-base font-semibold">{nameOf(currentBatterId(state))}</span>
+                <span className="text-muted-foreground"> · #{activeSlot + 1}</span>
               </p>
               <p className="truncate text-xs text-muted-foreground">
-                Challenges — {state.setup.away.name} {state.challenges.away} ·{" "}
-                {state.setup.home.name} {state.challenges.home}
-                {state.ghostRunner
-                  ? ` · Automatic runner: ${nameOf(state.ghostRunner)}`
-                  : ""}
-              </p>
-              <p className="truncate text-xs text-muted-foreground">
-                Last:{" "}
-                {state.plays.length
-                  ? describePlay(state.plays[state.plays.length - 1], nameOf)
-                  : "—"}
+                Pitching {nameOf(state.pitcher[defense])}
+                {trackPitches ? ` · ${state.pitchesThrown[state.pitcher[defense]] ?? 0} P` : ""}
+                {state.ghostRunner ? ` · Auto runner ${nameOf(state.ghostRunner)}` : ""}
               </p>
             </div>
           </div>
@@ -295,57 +277,65 @@ function GameScreen() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-4 gap-2">
-                <Button variant="outline" className="h-12 text-base" onClick={() => pitch("ball")}>
-                  Ball <kbd className="ml-1 text-xs opacity-60">B</kbd>
-                </Button>
-                <Button variant="outline" className="h-12 text-base" onClick={() => pitch("strike")}>
-                  Strike <kbd className="ml-1 text-xs opacity-60">S</kbd>
-                </Button>
-                <Button variant="outline" className="h-12 text-base" onClick={() => pitch("foul")}>
-                  Foul <kbd className="ml-1 text-xs opacity-60">F</kbd>
-                </Button>
-                <Button variant="outline" className="h-12" onClick={() => setMode("sub")}>
-                  <Users className="mr-1 h-4 w-4" /> Subs
-                </Button>
-              </div>
+              {trackPitches && (
+                <div className="grid grid-cols-3 gap-2">
+                  <Button variant="outline" className="h-11" onClick={() => pitch("ball")}>
+                    Ball <kbd className="ml-1 text-xs opacity-60">B</kbd>
+                  </Button>
+                  <Button variant="outline" className="h-11" onClick={() => pitch("strike")}>
+                    Strike <kbd className="ml-1 text-xs opacity-60">S</kbd>
+                  </Button>
+                  <Button variant="outline" className="h-11" onClick={() => pitch("foul")}>
+                    Foul <kbd className="ml-1 text-xs opacity-60">F</kbd>
+                  </Button>
+                </div>
+              )}
               <PlayEntry
                 onSelect={startPlay}
-                onAction={(a) => setMode(a === "abs" ? "abs" : "play")}
+                onAction={(a) => setMode(a)}
                 onDepthChange={handleDepth}
               />
             </>
           )}
+        </section>
+      )}
 
-          <div className="flex flex-wrap gap-1.5 print:hidden">
-            <Button variant="ghost" className="h-10" disabled={!session.canUndo} onClick={session.undo}>
-              <Undo2 className="mr-1 h-4 w-4" /> Undo
-            </Button>
-            <Button variant="ghost" className="h-10" disabled={!session.canRedo} onClick={session.redo}>
-              <Redo2 className="mr-1 h-4 w-4" /> Redo
-            </Button>
-            <Button variant="ghost" className="h-10" onClick={printScorecard}>
-              <Printer className="mr-1 h-4 w-4" /> Print
-            </Button>
-            <Button variant="ghost" className="h-10" onClick={() => exportCsv(session.game!, state)}>
-              <Download className="mr-1 h-4 w-4" /> CSV
-            </Button>
-            <Button variant="ghost" className="h-10" onClick={() => exportJson(session.game!)}>
-              <FileJson className="mr-1 h-4 w-4" /> JSON
-            </Button>
-          </div>
+      <Tabs defaultValue={over ? "box" : offense} className="mt-2">
+        <TabsList className="grid w-full grid-cols-4 print:hidden">
+          <TabsTrigger value="away">{state.setup.away.name}</TabsTrigger>
+          <TabsTrigger value="home">{state.setup.home.name}</TabsTrigger>
+          <TabsTrigger value="box">Box</TabsTrigger>
+          <TabsTrigger value="plays">Plays</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="away" className="mt-2 space-y-2">
+          <LineScore state={state} />
+          <ScorebookGrid
+            state={state}
+            side="away"
+            activeSlot={!over && offense === "away" ? activeSlot : null}
+          />
         </TabsContent>
 
-        <TabsContent value="book" className="mt-2 space-y-5">
+        <TabsContent value="home" className="mt-2 space-y-2">
           <LineScore state={state} />
-          <ScorebookGrid state={state} side="away" />
-          <ScorebookGrid state={state} side="home" />
+          <ScorebookGrid
+            state={state}
+            side="home"
+            activeSlot={!over && offense === "home" ? activeSlot : null}
+          />
         </TabsContent>
 
-        <TabsContent value="box" className="mt-2 space-y-6">
-          <LineScore state={state} />
-          <BoxScore state={state} side="away" />
-          <BoxScore state={state} side="home" />
+        <TabsContent value="box" className="mt-2 space-y-4">
+          {over ? (
+            <GameSummary state={state} onSaveInfo={session.updateSetup} />
+          ) : (
+            <>
+              <LineScore state={state} />
+              <BoxScore state={state} side="away" />
+              <BoxScore state={state} side="home" />
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="plays" className="mt-2">
@@ -375,46 +365,84 @@ function GameScreen() {
             )}
           </ol>
         </TabsContent>
-
-        <TabsContent value="summary" className="mt-2">
-          {over ? (
-            <GameSummary state={state} onSaveInfo={session.updateSetup} />
-          ) : (
-            <p className="p-4 text-center text-sm text-muted-foreground">
-              The summary appears automatically once the game is final. Currently{" "}
-              {offense === "away" ? "top" : "bottom"} {state.inning}.
-            </p>
-          )}
-        </TabsContent>
       </Tabs>
+
+      <div className="mt-2 flex flex-wrap gap-1 print:hidden">
+        <Button variant="ghost" className="h-9" disabled={!session.canUndo} onClick={session.undo}>
+          <Undo2 className="mr-1 h-4 w-4" /> Undo
+        </Button>
+        <Button variant="ghost" className="h-9" disabled={!session.canRedo} onClick={session.redo}>
+          <Redo2 className="mr-1 h-4 w-4" /> Redo
+        </Button>
+        <Button variant="ghost" className="h-9" onClick={printScorecard}>
+          <Printer className="mr-1 h-4 w-4" /> Print
+        </Button>
+        <Button variant="ghost" className="h-9" onClick={() => exportCsv(session.game!, state)}>
+          <Download className="mr-1 h-4 w-4" /> CSV
+        </Button>
+        <Button variant="ghost" className="h-9" onClick={() => exportJson(session.game!)}>
+          <FileJson className="mr-1 h-4 w-4" /> JSON
+        </Button>
+        <span className="ml-auto max-w-[45%] truncate self-center text-xs text-muted-foreground">
+          {state.plays.length ? describePlay(state.plays[state.plays.length - 1], nameOf) : ""}
+        </span>
+      </div>
     </main>
   );
 }
 
-function Scoreboard({ state }: { state: GameState }) {
+function Scoreboard({ state, trackPitches }: { state: GameState; trackPitches: boolean }) {
   const cell = (label: string, value: string | number) => (
     <div className="flex flex-col items-center">
-      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</span>
-      <span className="font-mono text-xl font-bold leading-tight">{value}</span>
+      <span className="text-[9px] uppercase tracking-widest text-muted-foreground">{label}</span>
+      <span className="font-mono text-lg font-bold leading-tight">{value}</span>
     </div>
   );
   const team = (side: TeamSide) => (
     <div className="min-w-0 text-center">
-      <p className="truncate text-xs uppercase tracking-wide text-muted-foreground">
+      <div className="flex items-center justify-center gap-1">
+        {[0, 1].map((i) => (
+          <span
+            key={i}
+            aria-hidden
+            className={cn(
+              "h-2 w-2 border border-ink",
+              i < state.challenges[side] ? "bg-ink" : "bg-transparent",
+            )}
+          />
+        ))}
+        <span className="sr-only">{state.challenges[side]} challenges remaining</span>
+      </div>
+      <p className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">
         {state.setup[side].name}
       </p>
       <p className="font-mono text-2xl font-bold leading-none">{state.score[side]}</p>
     </div>
   );
   return (
-    <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 rounded-md border border-border bg-secondary p-2">
+    <div className="mt-1.5 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-md border border-border bg-secondary p-1.5">
       {team("away")}
-      <div className="flex shrink-0 items-center gap-4">
+      <div className="flex shrink-0 items-center gap-3">
         {state.over
           ? cell("Final", `${Math.max(state.inning - 1, state.setup.innings)}`)
           : cell("Inn", `${state.half === "top" ? "▲" : "▼"}${state.inning}`)}
-        {cell("B-S", `${state.balls}-${state.strikes}`)}
-        {cell("Out", state.outs)}
+        {trackPitches && !state.over && cell("B-S", `${state.balls}-${state.strikes}`)}
+        <div className="flex flex-col items-center">
+          <span className="text-[9px] uppercase tracking-widest text-muted-foreground">Out</span>
+          <span className="mt-1 flex gap-1">
+            {[0, 1].map((i) => (
+              <span
+                key={i}
+                aria-hidden
+                className={cn(
+                  "h-3 w-3 rounded-full border-2 border-ink",
+                  i < state.outs ? "bg-ink" : "bg-transparent",
+                )}
+              />
+            ))}
+          </span>
+          <span className="sr-only">{state.outs} out</span>
+        </div>
       </div>
       {team("home")}
     </div>

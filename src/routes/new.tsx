@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { createGame, loadTemplates, saveTemplate } from "@/lib/storage/games";
+import { loadRecall, rememberRecall } from "@/lib/storage/recall";
 import { PositionGrid } from "@/components/scorebook/PositionGrid";
 import { newId } from "@/lib/useGame";
 import type { GameSetup, Player, TeamSetup } from "@/lib/scoring/types";
@@ -46,6 +47,7 @@ function NewGame() {
   const [home, setHome] = useState<Player[]>(() => blankRoster("home"));
   const [showMore, setShowMore] = useState(false);
   const [useDh, setUseDh] = useState(true);
+  const [trackPitches, setTrackPitches] = useState(false);
   const [meta, setMeta] = useState({
     awayName: "Away",
     homeName: "Home",
@@ -64,6 +66,11 @@ function NewGame() {
     umpThird: "",
   });
   const templates = loadTemplates();
+  const recall = {
+    teams: loadRecall("teams"),
+    stadiums: loadRecall("stadiums"),
+    cities: loadRecall("cities"),
+  };
 
   const buildTeam = (name: string, players: Player[], pitcherName: string): TeamSetup => {
     const filled = players.map((p, i) => ({
@@ -101,6 +108,7 @@ function NewGame() {
       attendance: meta.attendance,
       notes: meta.notes,
       useDh,
+      trackPitches,
       umpires: {
         home: meta.umpHome,
         first: meta.umpFirst,
@@ -111,11 +119,14 @@ function NewGame() {
       away: buildTeam(meta.awayName, away, meta.awayPitcher),
       home: buildTeam(meta.homeName, home, meta.homePitcher),
     };
+    rememberRecall("teams", meta.awayName, meta.homeName);
+    rememberRecall("stadiums", meta.stadium);
+    rememberRecall("cities", meta.city);
     const game = await createGame(setup);
     void navigate({ to: "/game/$gameId", params: { gameId: game.id } });
   };
 
-  const field = (key: keyof typeof meta, label: string, type = "text") => (
+  const field = (key: keyof typeof meta, label: string, type = "text", list?: string) => (
     <div className="space-y-1">
       <Label htmlFor={key} className="text-xs uppercase tracking-wide text-muted-foreground">
         {label}
@@ -123,11 +134,20 @@ function NewGame() {
       <Input
         id={key}
         type={type}
+        list={list}
         className="h-11"
         value={meta[key]}
         onChange={(e) => setMeta({ ...meta, [key]: e.target.value })}
       />
     </div>
+  );
+
+  const datalist = (id: string, values: string[]) => (
+    <datalist id={id}>
+      {values.map((v) => (
+        <option key={v} value={v} />
+      ))}
+    </datalist>
   );
 
   return (
@@ -137,12 +157,15 @@ function NewGame() {
 
       <section className="mt-6 space-y-3">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {field("awayName", "Away Team")}
-          {field("homeName", "Home Team")}
+          {field("awayName", "Away Team", "text", "recall-teams")}
+          {field("homeName", "Home Team", "text", "recall-teams")}
           {field("date", "Date", "date")}
-          {field("stadium", "Stadium")}
-          {field("city", "City")}
+          {field("stadium", "Stadium", "text", "recall-stadiums")}
+          {field("city", "City", "text", "recall-cities")}
         </div>
+        {datalist("recall-teams", recall.teams)}
+        {datalist("recall-stadiums", recall.stadiums)}
+        {datalist("recall-cities", recall.cities)}
       </section>
 
       <section className="mt-6 space-y-3">
@@ -192,6 +215,19 @@ function NewGame() {
                 </p>
               </div>
               <Switch checked={useDh} onCheckedChange={setUseDh} aria-label="Universal DH" />
+            </div>
+            <div className="flex items-center justify-between rounded-md border border-border p-3">
+              <div>
+                <p className="text-sm font-medium">Track pitch counts</p>
+                <p className="text-xs text-muted-foreground">
+                  Show ball/strike/foul entry and pitch totals while scoring.
+                </p>
+              </div>
+              <Switch
+                checked={trackPitches}
+                onCheckedChange={setTrackPitches}
+                aria-label="Track pitch counts"
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="notes" className="text-xs uppercase tracking-wide text-muted-foreground">

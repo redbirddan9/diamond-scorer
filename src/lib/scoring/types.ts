@@ -47,6 +47,8 @@ export interface GameSetup {
   notes?: string;
   /** Universal DH: pitcher does not bat. */
   useDh?: boolean;
+  /** Track balls/strikes/fouls during the game. */
+  trackPitches?: boolean;
   umpires: Umpires;
   innings: number;
   away: TeamSetup;
@@ -69,7 +71,6 @@ export type PlayResult =
   | "SF"
   | "SH"
   | "GO"
-  | "FO"
   | "PF"
   | "LO"
   | "PO"
@@ -184,6 +185,21 @@ export interface AbsChallengeLog {
   retained: boolean;
 }
 
+/** A substitution as it happened, used to annotate the scorecard. */
+export interface SubRecord {
+  team: TeamSide;
+  kind: "PH" | "PR" | "P" | "DEF";
+  inning: number;
+  half: Half;
+  slot?: number;
+  outPlayerId: string;
+  inPlayerId: string;
+  position?: string;
+  /** Batting team + slot when the change happened (used for pitcher marks). */
+  battingTeam: TeamSide;
+  battingSlot: number;
+}
+
 export interface LoggedPlay extends PlayEvent {
   inning: number;
   half: Half;
@@ -219,6 +235,7 @@ export interface GameState {
   /** ABS challenges remaining for each team. */
   challenges: Record<TeamSide, number>;
   absLog: AbsChallengeLog[];
+  subLog: SubRecord[];
   /** Extra-innings automatic runner, per half inning. */
   ghostRunner: string | null;
   winner: TeamSide | null;

@@ -23,7 +23,6 @@ export const BATTER_OUT_RESULTS: PlayResult[] = [
   "K_SWING",
   "K_LOOK",
   "GO",
-  "FO",
   "PF",
   "LO",
   "PO",
@@ -94,6 +93,7 @@ export function createInitialState(setup: GameSetup): GameState {
     over: false,
     challenges: { away: 2, home: 2 },
     absLog: [],
+    subLog: [],
     ghostRunner: null,
     winner: null,
   };
@@ -135,6 +135,7 @@ function clone(state: GameState): GameState {
     plays: [...state.plays],
     challenges: { ...state.challenges },
     absLog: [...state.absLog],
+    subLog: [...state.subLog],
   };
 }
 
@@ -354,6 +355,23 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
       const state = clone(prev);
       const order = state.lineup[ev.team];
       if (ev.inPlayerName) state.playerNames[ev.inPlayerId] = ev.inPlayerName;
+      const battingTeam = battingSide(state);
+      const outSlot =
+        typeof ev.slot === "number" && ev.slot >= 0 && ev.slot < order.length
+          ? ev.slot
+          : order.indexOf(ev.outPlayerId);
+      state.subLog.push({
+        team: ev.team,
+        kind: ev.kind ?? "DEF",
+        inning: state.inning,
+        half: state.half,
+        slot: outSlot >= 0 ? outSlot : undefined,
+        outPlayerId: ev.outPlayerId,
+        inPlayerId: ev.inPlayerId,
+        position: ev.position,
+        battingTeam,
+        battingSlot: state.slot[battingTeam] % Math.max(state.lineup[battingTeam].length, 1),
+      });
       if (typeof ev.slot === "number" && ev.slot >= 0 && ev.slot < order.length) {
         order[ev.slot] = ev.inPlayerId;
       } else {
@@ -485,6 +503,16 @@ export function proposePlay(
         .forEach((b) => push(b, "out", "double-play"));
       break;
     }
+    case "GO": {
+      // Routine ground out: the batter is retired and every runner takes the
+      // next base (an implicit fielder's choice when the defense goes to
+      // first). Runners from third score with fewer than two outs.
+      occupied(state).forEach((b) => {
+        if (b === 3 && state.outs >= 2) return;
+        push(b, advanceBy(b, 1), "fielders-choice");
+      });
+      break;
+    }
     default:
       // Strikeouts and routine outs: batter retired, runners hold.
       break;
@@ -526,6 +554,8 @@ export function runsOnPlay(draft: PlayDraft): number {
 export function needsReview(state: GameState, draft: PlayDraft): boolean {
   const runners = ([1, 2, 3] as Base[]).filter((b) => state.bases[b]);
   if (runners.length === 0) return false;
+  // Third out ends the inning: nothing left to decide.
+  if (isInningEnding(state, draft)) return false;
 
   switch (draft.result) {
     // Everybody scores — nothing to decide.
@@ -552,7 +582,6 @@ export function needsReview(state: GameState, draft: PlayDraft): boolean {
       return true;
     // Routine outs: a run can only score from third with fewer than two outs.
     case "GO":
-    case "FO":
     case "PF":
     case "LO":
     case "PO":

@@ -1,8 +1,8 @@
 /** Traditional scorebook notation rendering. */
 import type { LoggedPlay, PlayResult } from "./types";
 
-const FIELDER_OUT_PREFIX: Record<string, string> = {
-  FO: "F",
+/** Subscript letter shown after the fielder number for air outs. */
+const AIR_OUT_SUFFIX: Record<string, string> = {
   PF: "PF",
   LO: "L",
   PO: "P",
@@ -24,7 +24,6 @@ export const RESULT_LABELS: Record<PlayResult, string> = {
   SF: "Sacrifice Fly",
   SH: "Sacrifice Bunt",
   GO: "Ground Out",
-  FO: "Foul Out",
   PF: "Pop Foul Out",
   LO: "Line Out",
   PO: "Pop Out",
@@ -74,11 +73,10 @@ export function notationFor(play: {
       // A single fielder recorded the out unassisted, e.g. "3u".
       if (!f.length) return "GO";
       return f.length === 1 ? `${f[0]}u` : f.join("-");
-    case "FO":
     case "PF":
     case "LO":
     case "PO":
-      return f.length ? `${FIELDER_OUT_PREFIX[play.result]}${f[0]}` : play.result;
+      return f.length ? `${f[0]}${AIR_OUT_SUFFIX[play.result]}` : play.result;
     case "DP":
       return f.length ? `${f.join("-")} DP` : "DP";
     case "TP":
@@ -96,4 +94,31 @@ export function describePlay(play: LoggedPlay, nameOf: (id: string) => string): 
   if (runs) parts.push(`${runs} run${runs > 1 ? "s" : ""}`);
   if (play.rbi) parts.push(`${play.rbi} RBI`);
   return parts.join(", ");
+}
+
+/**
+ * Scorecard rendering split: a large primary mark with an optional smaller
+ * suffix (e.g. a big `8` with a subscript `P` for a pop out to centre) and an
+ * optional second line (e.g. `DP`).
+ */
+export function notationParts(play: {
+  result: PlayResult;
+  fielders: number[];
+  errorFielders?: number[];
+}): { main: string; sub?: string; below?: string } {
+  const f = play.fielders;
+  switch (play.result) {
+    case "LO":
+    case "PO":
+    case "PF":
+      return f.length
+        ? { main: String(f[0]), sub: AIR_OUT_SUFFIX[play.result] }
+        : { main: play.result };
+    case "DP":
+      return { main: f.length ? f.join("-") : "DP", below: f.length ? "DP" : undefined };
+    case "TP":
+      return { main: f.length ? f.join("-") : "TP", below: f.length ? "TP" : undefined };
+    default:
+      return { main: notationFor(play) };
+  }
 }

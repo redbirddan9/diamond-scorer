@@ -72,7 +72,7 @@ describe("rules engine", () => {
   });
 
   it("records outs and ends the half inning after three", () => {
-    const state = run(["K_SWING", "GO", "FO"]);
+    const state = run(["K_SWING", "GO", "PO"]);
     expect(state.half).toBe("bottom");
     expect(state.inning).toBe(1);
     expect(state.outs).toBe(0);
@@ -104,7 +104,7 @@ describe("rules engine", () => {
   });
 
   it("replays deterministically from the event log", () => {
-    const results: PlayResult[] = ["1B", "2B", "K_SWING", "HR", "GO", "FO"];
+    const results: PlayResult[] = ["1B", "2B", "K_SWING", "HR", "GO", "PO"];
     const a = run(results);
     const b = run(results);
     expect(b.score).toEqual(a.score);

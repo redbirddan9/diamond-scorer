@@ -23,7 +23,6 @@ export const BATTER_OUT_RESULTS: PlayResult[] = [
   "K_SWING",
   "K_LOOK",
   "GO",
-  "FO",
   "PF",
   "LO",
   "PO",
@@ -94,6 +93,7 @@ export function createInitialState(setup: GameSetup): GameState {
     over: false,
     challenges: { away: 2, home: 2 },
     absLog: [],
+    subLog: [],
     ghostRunner: null,
     winner: null,
   };
@@ -135,6 +135,7 @@ function clone(state: GameState): GameState {
     plays: [...state.plays],
     challenges: { ...state.challenges },
     absLog: [...state.absLog],
+    subLog: [...state.subLog],
   };
 }
 
@@ -354,6 +355,23 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
       const state = clone(prev);
       const order = state.lineup[ev.team];
       if (ev.inPlayerName) state.playerNames[ev.inPlayerId] = ev.inPlayerName;
+      const battingTeam = battingSide(state);
+      const outSlot =
+        typeof ev.slot === "number" && ev.slot >= 0 && ev.slot < order.length
+          ? ev.slot
+          : order.indexOf(ev.outPlayerId);
+      state.subLog.push({
+        team: ev.team,
+        kind: ev.kind ?? "DEF",
+        inning: state.inning,
+        half: state.half,
+        slot: outSlot >= 0 ? outSlot : undefined,
+        outPlayerId: ev.outPlayerId,
+        inPlayerId: ev.inPlayerId,
+        position: ev.position,
+        battingTeam,
+        battingSlot: state.slot[battingTeam] % Math.max(state.lineup[battingTeam].length, 1),
+      });
       if (typeof ev.slot === "number" && ev.slot >= 0 && ev.slot < order.length) {
         order[ev.slot] = ev.inPlayerId;
       } else {

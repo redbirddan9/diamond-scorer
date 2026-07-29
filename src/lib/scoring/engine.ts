@@ -503,6 +503,16 @@ export function proposePlay(
         .forEach((b) => push(b, "out", "double-play"));
       break;
     }
+    case "GO": {
+      // Routine ground out: the batter is retired and every runner takes the
+      // next base (an implicit fielder's choice when the defense goes to
+      // first). Runners from third score with fewer than two outs.
+      occupied(state).forEach((b) => {
+        if (b === 3 && state.outs >= 2) return;
+        push(b, advanceBy(b, 1), "fielders-choice");
+      });
+      break;
+    }
     default:
       // Strikeouts and routine outs: batter retired, runners hold.
       break;
@@ -544,6 +554,8 @@ export function runsOnPlay(draft: PlayDraft): number {
 export function needsReview(state: GameState, draft: PlayDraft): boolean {
   const runners = ([1, 2, 3] as Base[]).filter((b) => state.bases[b]);
   if (runners.length === 0) return false;
+  // Third out ends the inning: nothing left to decide.
+  if (isInningEnding(state, draft)) return false;
 
   switch (draft.result) {
     // Everybody scores — nothing to decide.
@@ -570,7 +582,6 @@ export function needsReview(state: GameState, draft: PlayDraft): boolean {
       return true;
     // Routine outs: a run can only score from third with fewer than two outs.
     case "GO":
-    case "FO":
     case "PF":
     case "LO":
     case "PO":

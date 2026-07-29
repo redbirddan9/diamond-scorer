@@ -13,57 +13,37 @@ interface Node {
   label: string;
   result?: PlayResult;
   /** Non-play action handled by the parent screen. */
-  action?: "abs";
+  action?: "abs" | "sub";
   children?: Node[];
 }
 
 /** Hierarchical menu — never more than three taps to any play. */
 export const MENU: Node[] = [
   {
-    key: "inplay",
-    hot: "i",
-    symbol: "IP",
-    label: "In Play",
+    key: "hit",
+    hot: "h",
+    symbol: "H",
+    label: "Hit",
     children: [
-      {
-        key: "hit",
-        hot: "h",
-        symbol: "H",
-        label: "Hit",
-        children: [
-          { key: "1b", hot: "1", symbol: "1B", label: "Single", result: "1B" },
-          { key: "2b", hot: "2", symbol: "2B", label: "Double", result: "2B" },
-          { key: "3b", hot: "3", symbol: "3B", label: "Triple", result: "3B" },
-          { key: "hr", hot: "4", symbol: "HR", label: "Home Run", result: "HR" },
-          { key: "grd", hot: "g", symbol: "GRD", label: "Ground Rule Double", result: "GRD" },
-        ],
-      },
-      {
-        key: "out",
-        hot: "o",
-        symbol: "O",
-        label: "Out",
-        children: [
-          { key: "go", hot: "g", symbol: "GO", label: "Ground Out", result: "GO" },
-          { key: "lo", hot: "l", symbol: "L", label: "Line Out", result: "LO" },
-          { key: "po", hot: "p", symbol: "P", label: "Pop Out", result: "PO" },
-          { key: "fo", hot: "f", symbol: "F", label: "Foul Out", result: "FO" },
-          { key: "pf", hot: "o", symbol: "PF", label: "Pop Foul Out", result: "PF" },
-          { key: "dp", hot: "d", symbol: "DP", label: "Double Play", result: "DP" },
-          { key: "tp", hot: "t", symbol: "TP", label: "Triple Play", result: "TP" },
-        ],
-      },
-      { key: "fc", hot: "c", symbol: "FC", label: "Fielder's Choice", result: "FC" },
-      {
-        key: "sac",
-        hot: "s",
-        symbol: "SAC",
-        label: "Sacrifice",
-        children: [
-          { key: "sf", hot: "f", symbol: "SF", label: "Sac Fly (RBI)", result: "SF" },
-          { key: "sh", hot: "b", symbol: "SH", label: "Sac Bunt", result: "SH" },
-        ],
-      },
+      { key: "1b", hot: "1", symbol: "1B", label: "Single", result: "1B" },
+      { key: "2b", hot: "2", symbol: "2B", label: "Double", result: "2B" },
+      { key: "3b", hot: "3", symbol: "3B", label: "Triple", result: "3B" },
+      { key: "hr", hot: "4", symbol: "HR", label: "Home Run", result: "HR" },
+      { key: "grd", hot: "g", symbol: "GRD", label: "Ground Rule 2B", result: "GRD" },
+    ],
+  },
+  {
+    key: "out",
+    hot: "o",
+    symbol: "O",
+    label: "Out",
+    children: [
+      { key: "go", hot: "g", symbol: "GO", label: "Ground Out", result: "GO" },
+      { key: "lo", hot: "l", symbol: "L", label: "Line Out", result: "LO" },
+      { key: "po", hot: "p", symbol: "P", label: "Pop Out", result: "PO" },
+      { key: "pf", hot: "f", symbol: "PF", label: "Pop Foul Out", result: "PF" },
+      { key: "dp", hot: "d", symbol: "DP", label: "Double Play", result: "DP" },
+      { key: "tp", hot: "t", symbol: "TP", label: "Triple Play", result: "TP" },
     ],
   },
   {
@@ -73,15 +53,25 @@ export const MENU: Node[] = [
     label: "Strikeout",
     children: [
       { key: "ks", hot: "s", symbol: "K", label: "Swinging", result: "K_SWING" },
-      { key: "kl", hot: "l", symbol: "ꓘ", label: "Looking", result: "K_LOOK" },
+      { key: "kl", hot: "l", symbol: "L", label: "Looking", result: "K_LOOK" },
     ],
   },
   { key: "bb", hot: "w", symbol: "BB", label: "Walk", result: "BB" },
-  { key: "hbp", hot: "h", symbol: "HBP", label: "Hit By Pitch", result: "HBP" },
+  { key: "hbp", hot: "y", symbol: "HBP", label: "Hit By Pitch", result: "HBP" },
   { key: "e", hot: "e", symbol: "E", label: "Error", result: "E" },
   {
+    key: "sac",
+    hot: "s",
+    symbol: "SAC",
+    label: "Sacrifice",
+    children: [
+      { key: "sf", hot: "f", symbol: "SF", label: "Sac Fly (RBI)", result: "SF" },
+      { key: "sh", hot: "b", symbol: "SH", label: "Sac Bunt", result: "SH" },
+    ],
+  },
+  {
     key: "other",
-    hot: "o",
+    hot: "x",
     symbol: "…",
     label: "Other",
     children: [
@@ -92,21 +82,23 @@ export const MENU: Node[] = [
       { key: "int", hot: "n", symbol: "INT", label: "Interference", result: "INTERFERENCE" },
     ],
   },
+  { key: "sub", hot: "u", symbol: "SUB", label: "Substitution", action: "sub" },
 ];
 
 const NEEDS_FIELDERS: PlayResult[] = [
   "GO",
-  "FO",
   "PF",
   "LO",
   "PO",
   "DP",
   "TP",
   "E",
-  "FC",
   "SF",
   "SH",
 ];
+
+/** Air outs are always recorded by exactly one fielder. */
+const SINGLE_FIELDER: PlayResult[] = ["LO", "PO", "PF", "SF"];
 
 const POSITIONS = [
   { n: 1, label: "P" },
@@ -122,7 +114,7 @@ const POSITIONS = [
 
 interface PlayEntryProps {
   onSelect: (result: PlayResult, fielders: number[]) => void;
-  onAction?: (action: "abs") => void;
+  onAction?: (action: "abs" | "sub") => void;
   /** Reports menu depth so the parent can pause its own hotkeys. */
   onDepthChange?: (depth: number) => void;
 }
@@ -161,6 +153,16 @@ export function PlayEntry({ onSelect, onAction, onDepthChange }: PlayEntryProps)
   const current = path[path.length - 1];
   const nodes = current ? current.children! : MENU;
   const depth = pending ? path.length + 1 : path.length;
+  const singleFielder = pending ? SINGLE_FIELDER.includes(pending) : false;
+
+  const pick = (result: PlayResult, n: number) => {
+    if (SINGLE_FIELDER.includes(result)) {
+      onSelect(result, [n]);
+      reset();
+      return;
+    }
+    setFielders((f) => [...f, n]);
+  };
 
   useEffect(() => {
     onDepthChange?.(depth);
@@ -175,7 +177,7 @@ export function PlayEntry({ onSelect, onAction, onDepthChange }: PlayEntryProps)
 
       if (pending) {
         if (/^[1-9]$/.test(k)) {
-          setFielders((f) => [...f, Number(k)]);
+          pick(pending, Number(k));
         } else if (e.key === "Enter") {
           onSelect(pending, fielders);
           reset();
@@ -210,7 +212,7 @@ export function PlayEntry({ onSelect, onAction, onDepthChange }: PlayEntryProps)
     return (
       <div className="space-y-2">
         <Header
-          title={`${RESULT_LABELS[pending]} — position numbers`}
+          title={`${RESULT_LABELS[pending]} — ${singleFielder ? "position" : "position numbers"}`}
           onBack={() => {
             setPending(null);
             setFielders([]);
@@ -221,14 +223,15 @@ export function PlayEntry({ onSelect, onAction, onDepthChange }: PlayEntryProps)
             <Button
               key={p.n}
               variant="outline"
-              className="h-12 flex-col gap-0"
-              onClick={() => setFielders((f) => [...f, p.n])}
+              className="h-11 flex-col gap-0"
+              onClick={() => pick(pending, p.n)}
             >
               <span className="font-mono text-lg font-bold leading-none">{p.n}</span>
               <span className="text-[10px] text-muted-foreground">{p.label}</span>
             </Button>
           ))}
         </div>
+        {!singleFielder && (
         <div className="flex items-center gap-2">
           <div className="flex h-11 flex-1 items-center rounded-md border border-border px-3 font-mono text-lg">
             {fielders.join("-") || "—"}
@@ -246,6 +249,7 @@ export function PlayEntry({ onSelect, onAction, onDepthChange }: PlayEntryProps)
             Apply <Hint k="↵" />
           </Button>
         </div>
+        )}
         {pending === "E" && fielders.length > 1 && (
           <p className="text-xs text-muted-foreground">
             {fielders.length} errors will be charged on this play.
@@ -263,10 +267,10 @@ export function PlayEntry({ onSelect, onAction, onDepthChange }: PlayEntryProps)
           <Button
             key={node.key}
             variant={current ? "secondary" : "default"}
-            className="relative h-14 flex-col gap-0.5"
+            className="relative h-12 flex-col gap-0"
             onClick={() => choose(node)}
           >
-            <span className="font-mono text-lg font-bold leading-none">{node.symbol}</span>
+            <span className="font-mono text-base font-bold leading-none">{node.symbol}</span>
             <span className="text-[10px] font-normal opacity-80">{node.label}</span>
             <Hint k={node.hot.toUpperCase()} corner />
           </Button>

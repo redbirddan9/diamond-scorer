@@ -2,7 +2,6 @@
  * Derived model for the paper scorecard: what each cell should draw, how far
  * each batter eventually got, substitution annotations and per-row totals.
  */
-import { isAtBat, isHit } from "./engine";
 import type { GameState, LoggedPlay, TeamSide } from "./types";
 
 export interface CellModel {
@@ -32,14 +31,15 @@ export interface RowModel {
 /** How far the batter of `plays[index]` eventually advanced that inning. */
 export function batterProgress(plays: LoggedPlay[], index: number) {
   const play = plays[index];
-  let base = play.batterTo === "out" ? 0 : play.batterTo === 4 ? 4 : Number(play.batterTo);
+  const batterTo = play.resolution.batterTo;
+  let base = batterTo === "out" || batterTo === null ? 0 : batterTo === 4 ? 4 : Number(batterTo);
   let scored = base === 4;
-  let out = play.batterTo === "out";
+  let out = batterTo === "out";
   if (!out && !scored) {
     for (let i = index + 1; i < plays.length; i += 1) {
       const later = plays[i];
       if (later.inning !== play.inning || later.half !== play.half) break;
-      for (const adv of later.advances) {
+      for (const adv of later.resolution.advances) {
         if (adv.runnerId !== play.batterId) continue;
         if (adv.to === "out") out = true;
         else if (adv.to === 4) {
@@ -70,7 +70,7 @@ export function buildScorecard(state: GameState, side: TeamSide): RowModel[] {
     let rbi = 0;
 
     state.plays.forEach((play, index) => {
-      if (play.battingTeam !== side || play.slot !== slot) return;
+      if (play.type !== "play" || play.battingTeam !== side || play.slot !== slot) return;
       const progress = batterProgress(state.plays, index);
       const pitcherChange = state.subLog.some(
         (s) =>
@@ -84,13 +84,13 @@ export function buildScorecard(state: GameState, side: TeamSide): RowModel[] {
         play,
         base: progress.base,
         scored: progress.scored,
-        outNumber: play.batterTo === "out" ? play.outsBefore + 1 : undefined,
+        outNumber: play.resolution.batterTo === "out" ? play.outsBefore + 1 : undefined,
         pitcherChange,
       };
-      if (isAtBat(play.result)) ab += 1;
-      if (isHit(play.result)) h += 1;
+      if (play.resolution.isAtBat) ab += 1;
+      if (play.resolution.isHit) h += 1;
       if (progress.scored) r += 1;
-      rbi += play.rbi;
+      rbi += play.resolution.rbi;
     });
 
     const subs = state.subLog.filter((s) => s.team === side && s.slot === slot && s.kind !== "P");

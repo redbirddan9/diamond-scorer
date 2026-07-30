@@ -1,8 +1,10 @@
 /**
  * Core domain types for the scorebook.
  *
- * The application is event-sourced: `GameSetup` + `GameEvent[]` fully
- * determine every derived artifact (game state, scorebook, box score, stats).
+ * The application is event sourced: `GameSetup` + `GameEvent[]` fully determine
+ * every derived artifact. Events record ONLY what the scorer observed on the
+ * field ("what happened"); the rules layer (src/lib/scoring/rules) decides the
+ * official scoring result ("how it is scored"). No UI component decides rules.
  */
 
 export type Handedness = "R" | "L" | "S";
@@ -11,6 +13,8 @@ export type Half = "top" | "bottom";
 export type Base = 1 | 2 | 3;
 /** 4 = home plate (run scored), "out" = retired on the play. */
 export type Destination = 1 | 2 | 3 | 4 | "out";
+/** Key used for advancement overrides: "batter" or the base a runner came from. */
+export type RunnerKey = "batter" | "1" | "2" | "3";
 
 export interface Player {
   id: string;
@@ -24,7 +28,7 @@ export interface Player {
 export interface TeamSetup {
   name: string;
   players: Player[];
-  /** Player ids, batting order slots 1-9. */
+  /** Player ids in batting order. */
   lineup: string[];
   pitcherId: string;
 }
@@ -55,30 +59,83 @@ export interface GameSetup {
   home: TeamSetup;
 }
 
-export type PlayResult =
+/* ------------------------------------------------------------------ *
+ * Observations — what the scorer saw
+ * ------------------------------------------------------------------ */
+
+export type BattedBallType = "ground" | "fly" | "line" | "popup" | "bunt";
+/** Who the defense retired on the play. */
+export type OutTarget = "batter" | Base;
+
+export type BatterInput =
+  | { kind: "hit"; bases: 1 | 2 | 3 | 4; groundRule?: boolean }
+  | { kind: "strikeout"; swinging: boolean }
+  | {
+      kind: "dropped-third";
+      swinging: boolean;
+      cause: "wild-pitch" | "passed-ball" | "throw";
+      batterSafe: boolean;
+      fielders?: number[];
+      errorFielders?: number[];
+    }
+  | { kind: "walk"; intentional?: boolean }
+  | { kind: "hbp" }
+  | { kind: "catcher-interference" }
+  | {
+      kind: "batted";
+      batted: BattedBallType;
+      /** Position numbers in scoring order, e.g. [6,4,3]. */
+      fielders: number[];
+      /** Everyone the defense retired on this continuous play. */
+      retired: OutTarget[];
+      errorFielders?: number[];
+    }
+  | { kind: "sac-bunt"; fielders: number[]; retired?: OutTarget[] };
+
+export type RunnerInput =
+  | { kind: "steal"; attempts: { from: Base; safe: boolean }[] }
+  | { kind: "wild-pitch" }
+  | { kind: "passed-ball" }
+  | { kind: "balk" }
+  | { kind: "defensive-indifference"; from: Base }
+  | {
+      kind: "pickoff";
+      from: Base;
+      out: boolean;
+      fielders?: number[];
+      errorFielders?: number[];
+    };
+
+export type PlayInput = BatterInput | RunnerInput;
+
+/* ------------------------------------------------------------------ *
+ * Official scoring result
+ * ------------------------------------------------------------------ */
+
+export type PlayClassification =
   | "1B"
   | "2B"
   | "3B"
   | "HR"
-  | "GRD"
-  | "K_SWING"
-  | "K_LOOK"
+  | "K"
   | "BB"
   | "IBB"
   | "HBP"
+  | "CI"
   | "E"
   | "FC"
   | "SF"
   | "SH"
-  | "GO"
-  | "PF"
-  | "LO"
-  | "PO"
   | "DP"
   | "TP"
-  | "CI"
-  | "OBSTRUCTION"
-  | "INTERFERENCE";
+  | "OUT"
+  | "SB"
+  | "CS"
+  | "WP"
+  | "PB"
+  | "BALK"
+  | "DI"
+  | "PO";
 
 export type AdvanceReason =
   | "hit"
@@ -92,12 +149,9 @@ export type AdvanceReason =
   | "sacrifice"
   | "force-out"
   | "tag-out"
-  | "double-play"
   | "pickoff"
   | "caught-stealing"
   | "defensive-indifference"
-  | "obstruction"
-  | "interference"
   | "other";
 
 export interface Advance {
@@ -107,21 +161,39 @@ export interface Advance {
   reason: AdvanceReason;
 }
 
+/** The full, official outcome of one play as decided by the rules layer. */
+export interface PlayResolution {
+  classification: PlayClassification;
+  /** null for plays with no batter (steals, wild pitches, pickoffs …). */
+  batterTo: Destination | null;
+  advances: Advance[];
+  rbi: number;
+  outsRecorded: number;
+  runs: number;
+  fielders: number[];
+  errorFielders: number[];
+  earnedRuns: boolean;
+  isHit: boolean;
+  isAtBat: boolean;
+  isPlateAppearance: boolean;
+  isStrikeout: boolean;
+  isWalk: boolean;
+  /** Runner keys whose destination the engine could not infer with certainty. */
+  uncertain: RunnerKey[];
+}
+
+/* ------------------------------------------------------------------ *
+ * Events
+ * ------------------------------------------------------------------ */
+
 export interface PlayEvent {
   id: string;
   type: "play";
   ts: string;
   batterId: string;
-  result: PlayResult;
-  /** Position numbers in scoring order, e.g. [6,4,3]. */
-  fielders: number[];
-  /** Where the batter ends up. "out" for retired batters. */
-  batterTo: Destination;
-  advances: Advance[];
-  rbi: number;
-  /** Every fielder charged with an error on the play. */
-  errorFielders?: number[];
-  earnedRuns?: boolean;
+  input: BatterInput;
+  /** Scorer overrides for runner destinations, keyed by RunnerKey. */
+  overrides?: Partial<Record<RunnerKey, Destination>>;
   note?: string;
 }
 
@@ -129,7 +201,8 @@ export interface RunnerEvent {
   id: string;
   type: "runner";
   ts: string;
-  advances: Advance[];
+  input: RunnerInput;
+  overrides?: Partial<Record<RunnerKey, Destination>>;
   note?: string;
 }
 
@@ -150,11 +223,8 @@ export interface SubEvent {
   /** 0-based batting order slot; omitted for pure defensive swaps. */
   slot?: number;
   position?: string;
-  /** What kind of substitution this is. */
   kind?: "PH" | "PR" | "P" | "DEF";
-  /** For pinch runners: the base the replaced runner occupied. */
   base?: Base;
-  /** Display name of the incoming player (rosters are open-ended). */
   inPlayerName?: string;
 }
 
@@ -195,16 +265,24 @@ export interface SubRecord {
   outPlayerId: string;
   inPlayerId: string;
   position?: string;
-  /** Batting team + slot when the change happened (used for pitcher marks). */
   battingTeam: TeamSide;
   battingSlot: number;
 }
 
-export interface LoggedPlay extends PlayEvent {
+/** A play, with the resolved official result and its game context. */
+export interface LoggedPlay {
+  id: string;
+  ts: string;
+  type: "play" | "runner";
+  /** null for runner-only plays. */
+  batterId: string | null;
+  input: PlayInput;
+  resolution: PlayResolution;
   inning: number;
   half: Half;
   battingTeam: TeamSide;
-  slot: number;
+  /** Batting order slot of the batter, null for runner-only plays. */
+  slot: number | null;
   pitcherId: string;
   outsBefore: number;
   runsScored: string[];
@@ -228,15 +306,12 @@ export interface GameState {
   pitcher: Record<TeamSide, string>;
   pitchesThrown: Record<string, number>;
   positions: Record<TeamSide, Record<string, string>>;
-  /** Every player id seen so far (rosters plus substitutes) mapped to a name. */
   playerNames: Record<string, string>;
   plays: LoggedPlay[];
   over: boolean;
-  /** ABS challenges remaining for each team. */
   challenges: Record<TeamSide, number>;
   absLog: AbsChallengeLog[];
   subLog: SubRecord[];
-  /** Extra-innings automatic runner, per half inning. */
   ghostRunner: string | null;
   winner: TeamSide | null;
 }

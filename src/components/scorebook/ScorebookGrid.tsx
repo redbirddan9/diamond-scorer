@@ -115,7 +115,9 @@ function ScoreCell({ cell }: { cell?: CellModel }) {
           {marks.sub && <sub className="text-[9px] font-semibold">{marks.sub}</sub>}
         </span>
         {marks.below && <span className="font-mono text-[9px] font-bold">{marks.below}</span>}
-        {play.rbi > 0 && <span className="text-[8px] text-muted-foreground">{play.rbi} RBI</span>}
+        {play.resolution.rbi > 0 && (
+          <span className="text-[8px] text-muted-foreground">{play.resolution.rbi} RBI</span>
+        )}
       </div>
       {outNumber && (
         <span className="absolute bottom-0 left-0.5 font-mono text-[9px] text-pencil">

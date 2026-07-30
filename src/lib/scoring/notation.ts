@@ -1,124 +1,137 @@
-/** Traditional scorebook notation rendering. */
-import type { LoggedPlay, PlayResult } from "./types";
+/**
+ * Scorecard notation. Renders the OFFICIAL result decided by the rules layer
+ * (SF-9, FC 6-4, DP 6-4-3 …), never the raw menu selection.
+ */
+import type { BatterInput, LoggedPlay, PlayClassification, PlayInput } from "./types";
 
-/** Subscript letter shown after the fielder number for air outs. */
-const AIR_OUT_SUFFIX: Record<string, string> = {
-  PF: "PF",
-  LO: "L",
-  PO: "P",
-};
-
-export const RESULT_LABELS: Record<PlayResult, string> = {
+export const RESULT_LABELS: Record<PlayClassification, string> = {
   "1B": "Single",
   "2B": "Double",
   "3B": "Triple",
   HR: "Home Run",
-  GRD: "Ground Rule Double",
-  K_SWING: "Strikeout Swinging",
-  K_LOOK: "Strikeout Looking",
+  K: "Strikeout",
   BB: "Walk",
   IBB: "Intentional Walk",
   HBP: "Hit By Pitch",
-  E: "Reached on Error",
+  CI: "Catcher's Interference",
+  E: "Reached On Error",
   FC: "Fielder's Choice",
   SF: "Sacrifice Fly",
   SH: "Sacrifice Bunt",
-  GO: "Ground Out",
-  PF: "Pop Foul Out",
-  LO: "Line Out",
-  PO: "Pop Out",
   DP: "Double Play",
   TP: "Triple Play",
-  CI: "Catcher's Interference",
-  OBSTRUCTION: "Obstruction",
-  INTERFERENCE: "Interference",
+  OUT: "Out",
+  SB: "Stolen Base",
+  CS: "Caught Stealing",
+  WP: "Wild Pitch",
+  PB: "Passed Ball",
+  BALK: "Balk",
+  DI: "Defensive Indifference",
+  PO: "Pickoff",
 };
 
-/** Short scorebook notation, e.g. `6-3`, `F8`, `K`, `ꓘ`, `1B`, `E6`. */
-export function notationFor(play: {
-  result: PlayResult;
-  fielders: number[];
-  errorFielders?: number[];
-}): string {
-  const f = play.fielders;
-  switch (play.result) {
+const AIR_LETTER: Record<string, string> = { fly: "F", line: "L", popup: "P", bunt: "B" };
+
+function isBatter(input: PlayInput): input is BatterInput {
+  return !["steal", "wild-pitch", "passed-ball", "balk", "defensive-indifference", "pickoff"].includes(
+    input.kind,
+  );
+}
+
+function chain(fielders: number[]): string {
+  if (!fielders.length) return "";
+  if (fielders.length === 1) return `${fielders[0]}u`;
+  return fielders.join("-");
+}
+
+export interface NotationParts {
+  /** Large, centered mark. */
+  main: string;
+  /** Subscript that follows the main mark. */
+  sub?: string;
+  /** Smaller line underneath (DP/TP, RBI …). */
+  below?: string;
+}
+
+export function notationParts(play: LoggedPlay): NotationParts {
+  const { input, resolution } = play;
+  const c = resolution.classification;
+  const f = resolution.fielders;
+  const e = resolution.errorFielders;
+
+  if (!isBatter(input)) {
+    switch (input.kind) {
+      case "steal":
+        return { main: c === "CS" ? "CS" : "SB" };
+      case "wild-pitch":
+        return { main: "WP" };
+      case "passed-ball":
+        return { main: "PB" };
+      case "balk":
+        return { main: "BK" };
+      case "defensive-indifference":
+        return { main: "DI" };
+      case "pickoff":
+        return { main: e.length ? "PO" : "PO", sub: e.length ? `E${e[0]}` : undefined };
+    }
+  }
+
+  switch (c) {
+    case "HR":
+      return { main: "HR" };
     case "1B":
     case "2B":
     case "3B":
-    case "HR":
-      return play.result;
-    case "GRD":
-      return "GRD";
-    case "K_SWING":
-      return "K";
-    case "K_LOOK":
-      return "ꓘ";
+      return {
+        main: c,
+        sub: input.kind === "hit" && input.groundRule ? "GR" : undefined,
+      };
+    case "K":
+      if (input.kind === "dropped-third") {
+        const cause = input.cause === "passed-ball" ? "PB" : input.cause === "wild-pitch" ? "WP" : "2-3";
+        return { main: input.swinging ? "K" : "L", sub: cause };
+      }
+      return { main: input.kind === "strikeout" && !input.swinging ? "L" : "K" };
     case "BB":
-      return "BB";
+      return { main: "BB" };
     case "IBB":
-      return "IBB";
+      return { main: "IBB" };
     case "HBP":
-      return "HBP";
-    case "E": {
-      const errs = play.errorFielders?.length ? play.errorFielders : f;
-      return errs.length ? errs.map((n) => `E${n}`).join(" ") : "E";
-    }
-    case "FC":
-      return f.length ? `FC ${f.join("-")}` : "FC";
-    case "SF":
-      return f.length ? `SAC F${f[0]}` : "SAC";
-    case "SH":
-      return f.length ? `SAC ${f.join("-")}` : "SAC";
-    case "GO":
-      // A single fielder recorded the out unassisted, e.g. "3u".
-      if (!f.length) return "GO";
-      return f.length === 1 ? `${f[0]}u` : f.join("-");
-    case "PF":
-    case "LO":
-    case "PO":
-      return f.length ? `${f[0]}${AIR_OUT_SUFFIX[play.result]}` : play.result;
-    case "DP":
-      return f.length ? `${f.join("-")} DP` : "DP";
-    case "TP":
-      return f.length ? `${f.join("-")} TP` : "TP";
+      return { main: "HP" };
     case "CI":
-      return "CI";
-    default:
-      return RESULT_LABELS[play.result] ?? play.result;
+      return { main: "CI" };
+    case "E":
+      return { main: "E", sub: e.join("") };
+    case "FC":
+      return { main: "FC", sub: chain(f) || undefined };
+    case "SF":
+      return { main: "SF", sub: f.length ? String(f[0]) : undefined };
+    case "SH":
+      return { main: "SH", sub: chain(f) || undefined };
+    case "DP":
+    case "TP":
+      return { main: chain(f) || c, below: c };
+    case "OUT":
+    default: {
+      if (input.kind === "batted" && input.batted !== "ground") {
+        return { main: f.length ? String(f[0]) : "—", sub: AIR_LETTER[input.batted] };
+      }
+      return { main: chain(f) || "OUT" };
+    }
   }
+}
+
+/** Single-line notation, used in exports and the play log. */
+export function notationFor(play: LoggedPlay): string {
+  const p = notationParts(play);
+  const rbi = play.resolution.rbi > 0 ? ` ${play.resolution.rbi} RBI` : "";
+  const below = p.below ? ` ${p.below}` : "";
+  return `${p.main}${p.sub ?? ""}${below}${rbi}`.trim();
 }
 
 export function describePlay(play: LoggedPlay, nameOf: (id: string) => string): string {
-  const runs = play.runsScored.length;
-  const parts = [`${nameOf(play.batterId)} — ${RESULT_LABELS[play.result]} (${notationFor(play)})`];
-  if (runs) parts.push(`${runs} run${runs > 1 ? "s" : ""}`);
-  if (play.rbi) parts.push(`${play.rbi} RBI`);
-  return parts.join(", ");
-}
-
-/**
- * Scorecard rendering split: a large primary mark with an optional smaller
- * suffix (e.g. a big `8` with a subscript `P` for a pop out to centre) and an
- * optional second line (e.g. `DP`).
- */
-export function notationParts(play: {
-  result: PlayResult;
-  fielders: number[];
-  errorFielders?: number[];
-}): { main: string; sub?: string; below?: string } {
-  const f = play.fielders;
-  switch (play.result) {
-    case "LO":
-    case "PO":
-    case "PF":
-      return f.length
-        ? { main: String(f[0]), sub: AIR_OUT_SUFFIX[play.result] }
-        : { main: play.result };
-    case "DP":
-      return { main: f.length ? f.join("-") : "DP", below: f.length ? "DP" : undefined };
-    case "TP":
-      return { main: f.length ? f.join("-") : "TP", below: f.length ? "TP" : undefined };
-    default:
-      return { main: notationFor(play) };
-  }
+  const who = play.batterId ? nameOf(play.batterId) : "";
+  const label = RESULT_LABELS[play.resolution.classification];
+  const notation = notationFor(play);
+  return [who, `${label} (${notation})`].filter(Boolean).join(" — ");
 }

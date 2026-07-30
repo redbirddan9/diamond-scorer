@@ -18,18 +18,20 @@ import {
   battingSide,
   currentBatterId,
   fieldingSide,
-  needsReview,
-  proposePlay,
-  type PlayDraft,
 } from "@/lib/scoring/engine";
+import { needsAdvancementInput, resolvePlay } from "@/lib/scoring/rules";
 import { describePlay } from "@/lib/scoring/notation";
 import { exportCsv, exportJson, printScorecard } from "@/lib/export";
 import type {
   AbsCaller,
   AbsOutcome,
+  BatterInput,
+  Destination,
   GameEvent,
   GameState,
-  PlayResult,
+  PlayInput,
+  RunnerInput,
+  RunnerKey,
   TeamSide,
 } from "@/lib/scoring/types";
 import { cn } from "@/lib/utils";
@@ -55,7 +57,11 @@ type Mode = "play" | "abs" | "sub";
 function GameScreen() {
   const { gameId } = Route.useParams();
   const session = useGame(gameId);
-  const [draft, setDraft] = useState<PlayDraft | null>(null);
+  const [pending, setPending] = useState<{
+    input: PlayInput;
+    batterId: string;
+    overrides: Partial<Record<RunnerKey, Destination>>;
+  } | null>(null);
   const [strikeThree, setStrikeThree] = useState(false);
   const [mode, setMode] = useState<Mode>("play");
   const [menuDepth, setMenuDepth] = useState(0);
@@ -73,24 +79,40 @@ function GameScreen() {
 
   const handleDepth = useCallback((d: number) => setMenuDepth(d), []);
 
+  /** Record an observation; the rules layer decides everything else. */
   const startPlay = useCallback(
-    (result: PlayResult, fielders: number[] = []) => {
-      if (!state) return;
-      const proposed = proposePlay(state, result, fielders);
-      if (needsReview(state, proposed)) {
-        setDraft(proposed);
+    (input: BatterInput) => {
+      if (!state || state.over) return;
+      const batterId = currentBatterId(state);
+      const resolution = resolvePlay(state, input);
+      if (needsAdvancementInput(resolution)) {
+        setPending({ input, batterId, overrides: {} });
         return;
       }
-      session.commit({ ...proposed, id: newId(), ts: new Date().toISOString() });
+      session.commit({
+        id: newId(),
+        type: "play",
+        ts: new Date().toISOString(),
+        batterId,
+        input,
+      });
+    },
+    [state, session],
+  );
+
+  const startRunnerPlay = useCallback(
+    (input: RunnerInput) => {
+      if (!state || state.over) return;
+      session.commit({ id: newId(), type: "runner", ts: new Date().toISOString(), input });
     },
     [state, session],
   );
 
   const pitch = useCallback(
     (call: "ball" | "strike" | "foul") => {
-      if (!state || draft || state.over) return;
+      if (!state || pending || state.over) return;
       if (call === "ball" && state.balls === 3) {
-        startPlay("BB");
+        startPlay({ kind: "walk" });
         return;
       }
       if (call === "strike" && state.strikes === 2) {
@@ -99,7 +121,7 @@ function GameScreen() {
       }
       session.commit({ id: newId(), type: "pitch", ts: new Date().toISOString(), call });
     },
-    [state, draft, session, startPlay],
+    [state, pending, session, startPlay],
   );
 
   // Keyboard: pitch calls at the top level of the play menu.
@@ -110,14 +132,14 @@ function GameScreen() {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const k = e.key.toLowerCase();
       if (strikeThree) {
-        if (k === "s") startPlay("K_SWING");
-        else if (k === "l") startPlay("K_LOOK");
+        if (k === "s") startPlay({ kind: "strikeout", swinging: true });
+        else if (k === "l") startPlay({ kind: "strikeout", swinging: false });
         else if (e.key !== "Escape") return;
         setStrikeThree(false);
         e.preventDefault();
         return;
       }
-      if (!trackPitches || mode !== "play" || draft || menuDepth > 0 || over) return;
+      if (!trackPitches || mode !== "play" || pending || menuDepth > 0 || over) return;
       if (k === "b") pitch("ball");
       else if (k === "s") pitch("strike");
       else if (k === "f") pitch("foul");
@@ -126,7 +148,7 @@ function GameScreen() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pitch, startPlay, strikeThree, mode, draft, menuDepth, over, trackPitches]);
+  }, [pitch, startPlay, strikeThree, mode, pending, menuDepth, over, trackPitches]);
 
   if (session.loading) {
     return <p className="p-6 text-sm text-muted-foreground">Loading scorebook…</p>;
@@ -148,9 +170,26 @@ function GameScreen() {
   const activeSlot = state.slot[offense] % Math.max(state.lineup[offense].length, 1);
 
   const finalize = () => {
-    if (!draft) return;
-    session.commit({ ...draft, id: newId(), ts: new Date().toISOString() });
-    setDraft(null);
+    if (!pending) return;
+    const ts = new Date().toISOString();
+    session.commit(
+      pending.input.kind === "steal" ||
+        pending.input.kind === "wild-pitch" ||
+        pending.input.kind === "passed-ball" ||
+        pending.input.kind === "balk" ||
+        pending.input.kind === "defensive-indifference" ||
+        pending.input.kind === "pickoff"
+        ? { id: newId(), type: "runner", ts, input: pending.input, overrides: pending.overrides }
+        : {
+            id: newId(),
+            type: "play",
+            ts,
+            batterId: pending.batterId,
+            input: pending.input,
+            overrides: pending.overrides,
+          },
+    );
+    setPending(null);
   };
 
   const submitAbs = (caller: AbsCaller, outcome: AbsOutcome) => {
@@ -158,9 +197,21 @@ function GameScreen() {
     const batch: GameEvent[] = [{ id: newId(), type: "abs", ts, caller, outcome }];
     const call = absCountResult(outcome);
     if (call === "ball" && state.balls === 3) {
-      batch.push({ ...proposePlay(state, "BB", []), id: newId(), ts });
+      batch.push({
+        id: newId(),
+        type: "play",
+        ts,
+        batterId: currentBatterId(state),
+        input: { kind: "walk" },
+      });
     } else if (call === "strike" && state.strikes === 2) {
-      batch.push({ ...proposePlay(state, "K_LOOK", []), id: newId(), ts });
+      batch.push({
+        id: newId(),
+        type: "play",
+        ts,
+        batterId: currentBatterId(state),
+        input: { kind: "strikeout", swinging: false },
+      });
     }
     session.commitMany(batch);
     setMode("play");
@@ -237,15 +288,17 @@ function GameScreen() {
                 }}
               />
             </div>
-          ) : draft ? (
+          ) : pending ? (
             <div className="rounded-md border border-border bg-card p-3">
               <ReviewPanel
                 state={state}
-                draft={draft}
+                input={pending.input}
+                batterId={pending.batterId}
+                overrides={pending.overrides}
                 nameOf={nameOf}
-                onChange={setDraft}
+                onChange={(overrides) => setPending({ ...pending, overrides })}
                 onFinalize={finalize}
-                onCancel={() => setDraft(null)}
+                onCancel={() => setPending(null)}
               />
             </div>
           ) : strikeThree ? (
@@ -256,7 +309,7 @@ function GameScreen() {
                   className="h-12 text-base"
                   onClick={() => {
                     setStrikeThree(false);
-                    startPlay("K_SWING");
+                    startPlay({ kind: "strikeout", swinging: true });
                   }}
                 >
                   Swinging (S)
@@ -265,7 +318,7 @@ function GameScreen() {
                   className="h-12 text-base"
                   onClick={() => {
                     setStrikeThree(false);
-                    startPlay("K_LOOK");
+                    startPlay({ kind: "strikeout", swinging: false });
                   }}
                 >
                   Looking (L)
@@ -291,7 +344,10 @@ function GameScreen() {
                 </div>
               )}
               <PlayEntry
-                onSelect={startPlay}
+                bases={state.bases}
+                nameOf={nameOf}
+                onPlay={startPlay}
+                onRunnerPlay={startRunnerPlay}
                 onAction={(a) => setMode(a)}
                 onDepthChange={handleDepth}
               />

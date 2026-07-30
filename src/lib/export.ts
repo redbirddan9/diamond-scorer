@@ -66,10 +66,10 @@ export function exportCsv(game: StoredGame, state: GameState) {
     rows.push([
       String(play.inning),
       play.half,
-      nameOf(play.batterId),
-      play.result,
+      play.batterId ? nameOf(play.batterId) : "",
+      play.resolution.classification,
       notationFor(play),
-      String(play.rbi),
+      String(play.resolution.rbi),
       String(play.runsScored.length),
     ]);
   }

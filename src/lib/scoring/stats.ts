@@ -1,5 +1,4 @@
 /** Statistics derived entirely from the reduced game state. */
-import { isAtBat, isHit, isStrikeout, isWalk } from "./engine";
 import type { GameState, TeamSide } from "./types";
 
 export interface BattingLine {
@@ -103,26 +102,29 @@ export function battingStats(state: GameState, side: TeamSide): BattingLine[] {
 
   for (const play of state.plays) {
     if (play.battingTeam !== side) continue;
-    const b = get(play.batterId);
-    b.pa += 1;
-    if (isAtBat(play.result)) b.ab += 1;
-    b.rbi += play.rbi;
-    if (isWalk(play.result)) b.bb += 1;
-    if (isStrikeout(play.result)) b.so += 1;
-    if (play.result === "HBP") b.hbp += 1;
-    if (isHit(play.result)) {
-      b.h += 1;
-      if (play.result === "2B") {
-        b.doubles += 1;
-        b.tb += 2;
-      } else if (play.result === "3B") {
-        b.triples += 1;
-        b.tb += 3;
-      } else if (play.result === "HR") {
-        b.hr += 1;
-        b.tb += 4;
-      } else {
-        b.tb += 1;
+    const res = play.resolution;
+    if (play.batterId) {
+      const b = get(play.batterId);
+      if (res.isPlateAppearance) b.pa += 1;
+      if (res.isAtBat) b.ab += 1;
+      b.rbi += res.rbi;
+      if (res.isWalk) b.bb += 1;
+      if (res.isStrikeout) b.so += 1;
+      if (res.classification === "HBP") b.hbp += 1;
+      if (res.isHit) {
+        b.h += 1;
+        if (res.classification === "2B") {
+          b.doubles += 1;
+          b.tb += 2;
+        } else if (res.classification === "3B") {
+          b.triples += 1;
+          b.tb += 3;
+        } else if (res.classification === "HR") {
+          b.hr += 1;
+          b.tb += 4;
+        } else {
+          b.tb += 1;
+        }
       }
     }
     for (const runnerId of play.runsScored) get(runnerId).r += 1;
@@ -155,18 +157,17 @@ export function pitchingStats(state: GameState, side: TeamSide): PitchingLine[] 
 
   for (const play of state.plays) {
     if (play.battingTeam === side) continue;
+    const res = play.resolution;
     const p = get(play.pitcherId);
-    p.bf += 1;
-    if (isHit(play.result)) p.h += 1;
-    if (play.result === "HR") p.hr += 1;
-    if (isStrikeout(play.result)) p.so += 1;
-    if (isWalk(play.result)) p.bb += 1;
-    if (play.result === "HBP") p.hbp += 1;
+    if (res.isPlateAppearance) p.bf += 1;
+    if (res.isHit) p.h += 1;
+    if (res.classification === "HR") p.hr += 1;
+    if (res.isStrikeout) p.so += 1;
+    if (res.isWalk) p.bb += 1;
+    if (res.classification === "HBP") p.hbp += 1;
     p.r += play.runsScored.length;
-    if (play.earnedRuns !== false) p.er += play.runsScored.length;
-    const outs =
-      play.advances.filter((a) => a.to === "out").length + (play.batterTo === "out" ? 1 : 0);
-    p.outs += outs;
+    if (res.earnedRuns) p.er += play.runsScored.length;
+    p.outs += res.outsRecorded;
   }
 
   for (const line of lines.values()) {
@@ -192,15 +193,17 @@ export function fieldingStats(state: GameState, side: TeamSide): FieldingLine[] 
 
   for (const play of state.plays) {
     if (play.battingTeam === side) continue; // this side is fielding
-    const f = play.fielders;
+    const res = play.resolution;
+    const f = res.fielders;
     if (f.length) {
       const putout = f[f.length - 1];
       get(putout).po += 1;
       f.slice(0, -1).forEach((pos) => (get(pos).a += 1));
     }
-    if (isStrikeout(play.result)) get(2).po += 1;
-    for (const pos of play.errorFielders ?? []) get(pos).e += 1;
-    if (play.result === "DP" || play.result === "TP") f.forEach((pos) => (get(pos).dp += 1));
+    if (res.isStrikeout) get(2).po += 1;
+    for (const pos of res.errorFielders) get(pos).e += 1;
+    if (res.classification === "DP" || res.classification === "TP")
+      f.forEach((pos) => (get(pos).dp += 1));
   }
 
   for (const line of lines.values()) {
@@ -221,11 +224,13 @@ export function leftOnBase(state: GameState, side: TeamSide): number {
       inningRunners = new Set();
       currentKey = key;
     }
-    if (play.batterTo !== "out" && play.batterTo !== 4) inningRunners.add(play.batterId);
-    for (const adv of play.advances) {
+    const batterTo = play.resolution.batterTo;
+    if (play.batterId && batterTo !== "out" && batterTo !== 4 && batterTo !== null)
+      inningRunners.add(play.batterId);
+    for (const adv of play.resolution.advances) {
       if (adv.to === "out" || adv.to === 4) inningRunners.delete(adv.runnerId);
     }
-    if (play.batterTo === 4) inningRunners.delete(play.batterId);
+    if (play.batterId && batterTo === 4) inningRunners.delete(play.batterId);
   }
   const activeSide = state.half === "top" ? "away" : "home";
   if (activeSide === side) {

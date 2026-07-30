@@ -1,9 +1,9 @@
 /**
- * Rules engine.
+ * Game state reducer.
  *
  * Pure, deterministic reduction of an immutable event log into game state.
- * Nothing here touches React, storage, or the DOM — editing a past play is
- * simply "drop/replace the event and replay".
+ * All baseball rules live in ./rules — this file only applies the resolved
+ * outcome to the state machine (bases, outs, innings, scoreboard).
  */
 import type {
   AbsEvent,
@@ -15,49 +15,10 @@ import type {
   GameState,
   LoggedPlay,
   PlayEvent,
-  PlayResult,
+  RunnerEvent,
   TeamSide,
 } from "./types";
-
-export const BATTER_OUT_RESULTS: PlayResult[] = [
-  "K_SWING",
-  "K_LOOK",
-  "GO",
-  "PF",
-  "LO",
-  "PO",
-  "DP",
-  "TP",
-  "SF",
-  "SH",
-];
-
-export const HIT_RESULTS: PlayResult[] = ["1B", "2B", "3B", "HR", "GRD"];
-
-export function isHit(result: PlayResult) {
-  return HIT_RESULTS.includes(result);
-}
-
-export function isStrikeout(result: PlayResult) {
-  return result === "K_SWING" || result === "K_LOOK";
-}
-
-export function isWalk(result: PlayResult) {
-  return result === "BB" || result === "IBB";
-}
-
-/** Plate appearances that do not count as an official at-bat. */
-export function isAtBat(result: PlayResult) {
-  return !(
-    isWalk(result) ||
-    result === "HBP" ||
-    result === "SF" ||
-    result === "SH" ||
-    result === "CI" ||
-    result === "OBSTRUCTION" ||
-    result === "INTERFERENCE"
-  );
-}
+import { resolvePlay } from "./rules";
 
 export function emptyBases(): Record<Base, string | null> {
   return { 1: null, 2: null, 3: null };
@@ -259,44 +220,56 @@ function applyMovement(
   return { outs, scored };
 }
 
-function applyPlay(prev: GameState, ev: PlayEvent): GameState {
+function logPlay(
+  prev: GameState,
+  ev: PlayEvent | RunnerEvent,
+): GameState {
   const state = clone(prev);
   const offense = battingSide(state);
   const defense = fieldingSide(state);
   const outsBefore = state.outs;
   const pitcherId = state.pitcher[defense];
   const pitchCount = state.balls + state.strikes;
+  const batterId = ev.type === "play" ? ev.batterId : null;
 
-  if (isHit(ev.result)) state.hits[offense] += 1;
-  state.errors[defense] += (ev.errorFielders ?? []).length;
+  // Every scoring decision comes from the rules layer.
+  const resolution = resolvePlay(state, ev.input, ev.overrides ?? {});
 
-  const { outs, scored } = applyMovement(state, ev.advances, ev.batterId, ev.batterTo);
+  if (resolution.isHit) state.hits[offense] += 1;
+  state.errors[defense] += resolution.errorFielders.length;
+
+  const { outs, scored } = applyMovement(state, resolution.advances, batterId, resolution.batterTo);
   state.outs += outs;
 
   const logged: LoggedPlay = {
-    ...ev,
+    id: ev.id,
+    ts: ev.ts,
+    type: ev.type,
+    batterId,
+    input: ev.input,
+    resolution,
     inning: state.inning,
     half: state.half,
     battingTeam: offense,
-    slot: state.slot[offense] % state.lineup[offense].length,
+    slot: batterId ? state.slot[offense] % state.lineup[offense].length : null,
     pitcherId,
     outsBefore,
     runsScored: scored,
     pitchCount,
   };
   state.plays.push(logged);
-  state.pitchesThrown[pitcherId] = (state.pitchesThrown[pitcherId] ?? 0) + Math.max(pitchCount, 1);
 
-  state.slot[offense] = (state.slot[offense] + 1) % state.lineup[offense].length;
-  state.balls = 0;
-  state.strikes = 0;
+  if (ev.type === "play") {
+    state.pitchesThrown[pitcherId] = (state.pitchesThrown[pitcherId] ?? 0) + Math.max(pitchCount, 1);
+    state.slot[offense] = (state.slot[offense] + 1) % state.lineup[offense].length;
+    state.balls = 0;
+    state.strikes = 0;
+  }
   ensureInningCell(state, offense);
 
-  if (state.outs >= 3) {
-    endHalfInning(state);
-  } else {
-    checkWalkOff(state);
-  }
+  // Half innings switch automatically on the third out.
+  if (state.outs >= 3) endHalfInning(state);
+  else checkWalkOff(state);
   return state;
 }
 
@@ -324,14 +297,8 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
       else if (state.strikes < 2) state.strikes += 1;
       return state;
     }
-    case "runner": {
-      const state = clone(prev);
-      const { outs } = applyMovement(state, ev.advances, null, null);
-      state.outs += outs;
-      if (state.outs >= 3) endHalfInning(state);
-      else checkWalkOff(state);
-      return state;
-    }
+    case "runner":
+      return logPlay(prev, ev);
     case "abs": {
       const state = clone(prev);
       const team = absTeam(ev.caller, state);
@@ -388,7 +355,7 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
       return state;
     }
     case "play":
-      return applyPlay(prev, ev);
+      return logPlay(prev, ev);
     default:
       return prev;
   }
@@ -398,195 +365,3 @@ export function reduceEvents(setup: GameSetup, events: GameEvent[]): GameState {
   return events.reduce<GameState>(applyEvent, createInitialState(setup));
 }
 
-/* ------------------------------------------------------------------ *
- * Intelligent scorebook assist
- * ------------------------------------------------------------------ */
-
-function occupied(state: GameState): Base[] {
-  return ([3, 2, 1] as Base[]).filter((b) => state.bases[b]);
-}
-
-function forcedBases(state: GameState): Base[] {
-  const forced: Base[] = [];
-  if (state.bases[1]) {
-    forced.push(1);
-    if (state.bases[2]) {
-      forced.push(2);
-      if (state.bases[3]) forced.push(3);
-    }
-  }
-  return forced;
-}
-
-function advanceBy(base: Base, n: number): Destination {
-  const target = base + n;
-  return (target >= 4 ? 4 : target) as Destination;
-}
-
-export interface PlayDraft extends Omit<PlayEvent, "id" | "ts"> {}
-
-/**
- * Given the current state and a chosen result, infer the complete play using
- * official scoring conventions. The UI presents this for review/override.
- */
-export function proposePlay(
-  state: GameState,
-  result: PlayResult,
-  fielders: number[] = [],
-): PlayDraft {
-  const batterId = currentBatterId(state);
-  const advances: Advance[] = [];
-  let batterTo: Destination = "out";
-  let errorFielders: number[] = [];
-
-  const push = (from: Base, to: Destination, reason: Advance["reason"]) => {
-    const runnerId = state.bases[from];
-    if (runnerId) advances.push({ runnerId, from, to, reason });
-  };
-
-  switch (result) {
-    case "1B":
-      batterTo = 1;
-      occupied(state).forEach((b) => push(b, advanceBy(b, 1), "hit"));
-      break;
-    case "2B":
-      batterTo = 2;
-      occupied(state).forEach((b) => push(b, advanceBy(b, 2), "hit"));
-      break;
-    case "GRD":
-      // Ground rule double: two-base award for the batter and every runner.
-      batterTo = 2;
-      occupied(state).forEach((b) => push(b, advanceBy(b, 2), "hit"));
-      break;
-    case "3B":
-      batterTo = 3;
-      occupied(state).forEach((b) => push(b, 4, "hit"));
-      break;
-    case "HR":
-      batterTo = 4;
-      occupied(state).forEach((b) => push(b, 4, "hit"));
-      break;
-    case "BB":
-    case "IBB":
-    case "HBP":
-    case "CI":
-    case "OBSTRUCTION":
-    case "INTERFERENCE":
-      batterTo = 1;
-      forcedBases(state).forEach((b) => push(b, advanceBy(b, 1), "walk"));
-      break;
-    case "E":
-      batterTo = 1;
-      errorFielders = [...fielders];
-      occupied(state).forEach((b) => push(b, advanceBy(b, 1), "error"));
-      break;
-    case "FC": {
-      batterTo = 1;
-      const lead = forcedBases(state).slice(-1)[0];
-      if (lead !== undefined) push(lead, "out", "force-out");
-      break;
-    }
-    case "SF":
-      if (state.bases[3]) push(3, 4, "sacrifice");
-      break;
-    case "SH":
-      occupied(state).forEach((b) => push(b, advanceBy(b, 1), "sacrifice"));
-      break;
-    case "DP": {
-      const lead = forcedBases(state)[0];
-      if (lead !== undefined) push(lead, "out", "double-play");
-      break;
-    }
-    case "TP": {
-      forcedBases(state)
-        .slice(0, 2)
-        .forEach((b) => push(b, "out", "double-play"));
-      break;
-    }
-    case "GO": {
-      // Routine ground out: the batter is retired and every runner takes the
-      // next base (an implicit fielder's choice when the defense goes to
-      // first). Runners from third score with fewer than two outs.
-      occupied(state).forEach((b) => {
-        if (b === 3 && state.outs >= 2) return;
-        push(b, advanceBy(b, 1), "fielders-choice");
-      });
-      break;
-    }
-    default:
-      // Strikeouts and routine outs: batter retired, runners hold.
-      break;
-  }
-
-  const scoring = advances.filter((a) => a.to === 4).length + (batterTo === 4 ? 1 : 0);
-  const noRbi = result === "E" || result === "FC" || result === "DP" || result === "TP";
-  const rbi = noRbi ? 0 : scoring;
-
-  return {
-    type: "play",
-    batterId,
-    result,
-    fielders,
-    batterTo,
-    advances,
-    rbi,
-    errorFielders,
-    earnedRuns: errorFielders.length === 0,
-  };
-}
-
-export function isInningEnding(state: GameState, draft: PlayDraft): boolean {
-  const outs =
-    draft.advances.filter((a) => a.to === "out").length + (draft.batterTo === "out" ? 1 : 0);
-  return state.outs + outs >= 3;
-}
-
-export function runsOnPlay(draft: PlayDraft): number {
-  return draft.advances.filter((a) => a.to === 4).length + (draft.batterTo === 4 ? 1 : 0);
-}
-
-/**
- * Should the scorer be asked to confirm runner advancement / RBIs?
- *
- * Only when the situation is genuinely ambiguous about a run scoring —
- * otherwise basic baseball logic is applied automatically.
- */
-export function needsReview(state: GameState, draft: PlayDraft): boolean {
-  const runners = ([1, 2, 3] as Base[]).filter((b) => state.bases[b]);
-  if (runners.length === 0) return false;
-  // Third out ends the inning: nothing left to decide.
-  if (isInningEnding(state, draft)) return false;
-
-  switch (draft.result) {
-    // Everybody scores — nothing to decide.
-    case "HR":
-    case "3B":
-      return false;
-    // Ground rule double: the award is fixed by rule, never a judgement call.
-    case "GRD":
-      return false;
-    // Ball in play with the batter reaching: a trailing runner stopped at
-    // third could plausibly have been waved home.
-    case "1B":
-    case "2B":
-    case "E":
-    case "FC":
-      return draft.advances.some((a) => a.to === 3);
-    case "SF":
-      // Tagging from second is a judgement call.
-      return Boolean(state.bases[2]) || Boolean(state.bases[1]);
-    case "SH":
-      return Boolean(state.bases[3]);
-    case "DP":
-    case "TP":
-      return true;
-    // Routine outs: a run can only score from third with fewer than two outs.
-    case "GO":
-    case "PF":
-    case "LO":
-    case "PO":
-      return Boolean(state.bases[3]) && state.outs < 2;
-    default:
-      return false;
-  }
-}

@@ -36,6 +36,11 @@ export function validatePlay(
     }
   }
 
+  const runs = advances.filter((a) => a.to === 4).length + (batterTo === 4 ? 1 : 0);
+  if (batterTo === "out" && state.outs + outsRecorded >= 3 && runs > 0) {
+    errors.push("No run can score when the batter is retired for the third out.");
+  }
+
   if (classification === "SF") {
     if (state.outs >= 2) errors.push("A sacrifice fly is impossible with two outs.");
     if (!advances.some((a) => a.to === 4)) errors.push("A sacrifice fly requires a run to score.");

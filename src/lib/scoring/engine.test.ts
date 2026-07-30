@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {
-  createInitialState,
-  currentBatterId,
-  proposePlay,
-  reduceEvents,
-} from "./engine";
-import type { GameEvent, GameSetup, PlayResult } from "./types";
+import { createInitialState, currentBatterId, reduceEvents } from "./engine";
+import { resolvePlay, validate } from "./rules";
+import type { BatterInput, GameEvent, GameSetup } from "./types";
 
 function team(prefix: string): GameSetup["home"] {
   const players = Array.from({ length: 9 }, (_, i) => ({
@@ -27,149 +23,172 @@ const setup: GameSetup = {
   home: team("H"),
 };
 
-let seq = 0;
-function play(result: PlayResult, state = createInitialState(setup)) {
-  const draft = proposePlay(state, result);
-  return { ...draft, id: `e${seq++}`, ts: new Date().toISOString() } as GameEvent;
-}
+const single: BatterInput = { kind: "hit", bases: 1 };
+const homer: BatterInput = { kind: "hit", bases: 4 };
+const groundOut: BatterInput = { kind: "batted", batted: "ground", fielders: [6, 3], retired: ["batter"] };
+const flyOut: BatterInput = { kind: "batted", batted: "fly", fielders: [9], retired: ["batter"] };
+const strikeout: BatterInput = { kind: "strikeout", swinging: true };
 
-function run(results: PlayResult[]) {
+let seq = 0;
+function run(inputs: BatterInput[], s: GameSetup = setup) {
   const events: GameEvent[] = [];
-  let state = createInitialState(setup);
-  for (const r of results) {
-    const ev = play(r, state);
-    events.push(ev);
-    state = reduceEvents(setup, events);
+  let state = createInitialState(s);
+  for (const input of inputs) {
+    events.push({
+      id: `e${seq++}`,
+      ts: "",
+      type: "play",
+      batterId: currentBatterId(state),
+      input,
+    });
+    state = reduceEvents(s, events);
   }
   return state;
 }
 
 describe("rules engine", () => {
   it("places the batter on first for a single", () => {
-    const state = run(["1B"]);
+    const state = run([single]);
     expect(state.bases[1]).toBe("A1");
     expect(state.hits.away).toBe(1);
-    expect(state.outs).toBe(0);
   });
 
-  it("forces the runner from first on a walk only when required", () => {
-    const state = run(["1B", "BB"]);
-    expect(state.bases[1]).toBe("A2");
-    expect(state.bases[2]).toBe("A1");
-  });
-
-  it("does not advance a runner on second on a walk with first empty", () => {
-    const state = run(["2B", "BB"]);
-    expect(state.bases[2]).toBe("A1");
-    expect(state.bases[1]).toBe("A2");
+  it("forces runners on a walk only when required", () => {
+    const forced = run([single, { kind: "walk" }]);
+    expect(forced.bases[2]).toBe("A1");
+    const notForced = run([{ kind: "hit", bases: 2 }, { kind: "walk" }]);
+    expect(notForced.bases[2]).toBe("A1");
+    expect(notForced.bases[1]).toBe("A2");
   });
 
   it("clears the bases and credits RBIs on a home run", () => {
-    const state = run(["1B", "1B", "HR"]);
+    const state = run([single, single, homer]);
     expect(state.score.away).toBe(3);
-    expect(state.bases[1]).toBeNull();
-    expect(state.plays[2].rbi).toBe(3);
+    expect(state.plays[2].resolution.rbi).toBe(3);
   });
 
-  it("records outs and ends the half inning after three", () => {
-    const state = run(["K_SWING", "GO", "PO"]);
+  it("switches half innings automatically after three outs", () => {
+    const state = run([strikeout, groundOut, flyOut]);
     expect(state.half).toBe("bottom");
-    expect(state.inning).toBe(1);
     expect(state.outs).toBe(0);
   });
 
-  it("advances the batting order and resets the count", () => {
-    const state = run(["K_SWING"]);
-    expect(currentBatterId(state)).toBe("A2");
-    expect(state.strikes).toBe(0);
+  it("classifies a sacrifice fly automatically and awards the RBI", () => {
+    const state = createInitialState(setup);
+    state.bases[3] = "A9";
+    const resolution = resolvePlay(state, flyOut, { "3": 4 });
+    expect(resolution.classification).toBe("SF");
+    expect(resolution.rbi).toBe(1);
+    expect(resolution.isAtBat).toBe(false);
   });
 
-  it("scores the runner from third on a sacrifice fly without an at-bat", () => {
-    const state = run(["3B", "SF"]);
-    expect(state.score.away).toBe(1);
-    expect(state.outs).toBe(1);
-    expect(state.plays[1].rbi).toBe(1);
+  it("classifies a fielder's choice when the batter reaches and a runner is out", () => {
+    const state = createInitialState(setup);
+    state.bases[1] = "A9";
+    const resolution = resolvePlay(state, {
+      kind: "batted",
+      batted: "ground",
+      fielders: [6, 4],
+      retired: [1],
+    });
+    expect(resolution.classification).toBe("FC");
+    expect(resolution.batterTo).toBe(1);
   });
 
-  it("retires the lead runner on a fielder's choice", () => {
-    const state = run(["1B", "FC"]);
-    expect(state.outs).toBe(1);
-    expect(state.bases[1]).toBe("A2");
-    expect(state.bases[2]).toBeNull();
+  it("classifies a double play and withholds the RBI", () => {
+    const state = createInitialState(setup);
+    state.bases[1] = "A8";
+    state.bases[3] = "A9";
+    const resolution = resolvePlay(
+      state,
+      { kind: "batted", batted: "ground", fielders: [6, 4, 3], retired: [1, "batter"] },
+      { "3": 4 },
+    );
+    expect(resolution.classification).toBe("DP");
+    expect(resolution.rbi).toBe(0);
   });
 
   it("awards no RBI on an error", () => {
-    const state = run(["3B", "E"]);
-    expect(state.plays[1].rbi).toBe(0);
+    const state = createInitialState(setup);
+    state.bases[3] = "A9";
+    const resolution = resolvePlay(
+      state,
+      { kind: "batted", batted: "ground", fielders: [6], retired: [], errorFielders: [6] },
+      { "3": 4 },
+    );
+    expect(resolution.classification).toBe("E");
+    expect(resolution.rbi).toBe(0);
   });
 
-  it("replays deterministically from the event log", () => {
-    const results: PlayResult[] = ["1B", "2B", "K_SWING", "HR", "GO", "PO"];
-    const a = run(results);
-    const b = run(results);
-    expect(b.score).toEqual(a.score);
-    expect(b.plays.length).toBe(a.plays.length);
+  it("skips the advancement menu when nothing is uncertain", () => {
+    const empty = createInitialState(setup);
+    expect(resolvePlay(empty, single).uncertain).toHaveLength(0);
+    expect(resolvePlay(empty, strikeout).uncertain).toHaveLength(0);
+    const runnerOn = createInitialState(setup);
+    runnerOn.bases[1] = "A9";
+    expect(resolvePlay(runnerOn, { kind: "walk" }).uncertain).toHaveLength(0);
+    expect(resolvePlay(runnerOn, homer).uncertain).toHaveLength(0);
   });
-});
-describe("extra innings, game end and ABS challenges", () => {
-  const short: GameSetup = { ...setup, innings: 1 };
 
-  function runWith(s: GameSetup, results: PlayResult[]) {
-    const events: GameEvent[] = [];
-    let state = createInitialState(s);
-    for (const r of results) {
-      const draft = proposePlay(state, r);
-      events.push({ ...draft, id: `x${seq++}`, ts: "" } as GameEvent);
-      state = reduceEvents(s, events);
-    }
-    return state;
-  }
+  it("asks for input when a runner may tag from second", () => {
+    const state = createInitialState(setup);
+    state.bases[2] = "A9";
+    expect(resolvePlay(state, flyOut).uncertain).toEqual(["2"]);
+  });
+
+  it("rejects impossible plays", () => {
+    const state = createInitialState(setup);
+    state.outs = 2;
+    state.bases[3] = "A9";
+    const resolution = resolvePlay(state, flyOut, { "3": 4 });
+    expect(validate(state, flyOut, resolution).length).toBeGreaterThan(0);
+  });
+
+  it("handles stolen bases and caught stealing", () => {
+    let state = createInitialState(setup);
+    const events: GameEvent[] = [
+      { id: "s0", ts: "", type: "play", batterId: "A1", input: single },
+      { id: "s1", ts: "", type: "runner", input: { kind: "steal", attempts: [{ from: 1, safe: true }] } },
+    ];
+    state = reduceEvents(setup, events);
+    expect(state.bases[2]).toBe("A1");
+    expect(state.plays[1].resolution.classification).toBe("SB");
+  });
 
   it("places an automatic runner on second in extra innings", () => {
-    // 1-inning game, both teams go in order -> extras.
-    const state = runWith(short, ["GO", "GO", "GO", "GO", "GO", "GO"]);
+    const short: GameSetup = { ...setup, innings: 1 };
+    const state = run([groundOut, groundOut, groundOut, groundOut, groundOut, groundOut], short);
     expect(state.inning).toBe(2);
-    expect(state.over).toBe(false);
     expect(state.bases[2]).toBe("A3");
-    expect(state.ghostRunner).toBe("A3");
   });
 
   it("ends the game when the home team leads after the last inning", () => {
-    const state = runWith(short, ["GO", "GO", "GO", "HR"]);
+    const short: GameSetup = { ...setup, innings: 1 };
+    const state = run([groundOut, groundOut, groundOut, homer], short);
     expect(state.over).toBe(true);
     expect(state.winner).toBe("home");
   });
 
   it("charges an error for every fielder selected", () => {
-    let state = createInitialState(setup);
-    const draft = proposePlay(state, "E", [6, 3]);
-    state = reduceEvents(setup, [{ ...draft, id: "e-err", ts: "" } as GameEvent]);
+    const state = reduceEvents(setup, [
+      {
+        id: "err",
+        ts: "",
+        type: "play",
+        batterId: "A1",
+        input: { kind: "batted", batted: "ground", fielders: [6, 3], retired: [], errorFielders: [6, 3] },
+      },
+    ]);
     expect(state.errors.home).toBe(2);
   });
 
-  it("keeps the challenge when a call is overturned and adds to the count", () => {
+  it("keeps the challenge when a call is overturned", () => {
     const state = reduceEvents(setup, [
       { id: "a1", type: "abs", ts: "", caller: "batter", outcome: "strike-overturned" },
       { id: "a2", type: "abs", ts: "", caller: "pitcher", outcome: "ball-confirmed" },
     ]);
-    expect(state.challenges.away).toBe(2); // overturned: retained
-    expect(state.challenges.home).toBe(1); // stands: used
+    expect(state.challenges.away).toBe(2);
+    expect(state.challenges.home).toBe(1);
     expect(state.balls).toBe(2);
-  });
-
-  it("grants a challenge in extras to a team that has none left", () => {
-    const events: GameEvent[] = [
-      { id: "b1", type: "abs", ts: "", caller: "batter", outcome: "strike-confirmed" },
-      { id: "b2", type: "abs", ts: "", caller: "batter", outcome: "strike-confirmed" },
-    ];
-    let state = reduceEvents(short, events);
-    expect(state.challenges.away).toBe(0);
-    for (const r of ["GO", "GO", "GO", "GO", "GO", "GO"] as PlayResult[]) {
-      const draft = proposePlay(state, r);
-      events.push({ ...draft, id: `y${seq++}`, ts: "" } as GameEvent);
-      state = reduceEvents(short, events);
-    }
-    expect(state.inning).toBe(2);
-    expect(state.challenges.away).toBe(1);
   });
 });

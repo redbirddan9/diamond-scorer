@@ -121,7 +121,7 @@ function GameScreen() {
       }
       session.commit({ id: newId(), type: "pitch", ts: new Date().toISOString(), call });
     },
-    [state, draft, session, startPlay],
+    [state, pending, session, startPlay],
   );
 
   // Keyboard: pitch calls at the top level of the play menu.

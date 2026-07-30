@@ -1,23 +1,49 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { RESULT_LABELS } from "@/lib/scoring/notation";
-import type { PlayResult } from "@/lib/scoring/types";
+import type {
+  Base,
+  BatterInput,
+  BattedBallType,
+  OutTarget,
+  RunnerInput,
+} from "@/lib/scoring/types";
+
+/**
+ * Play entry records WHAT HAPPENED. It never decides how a play is scored —
+ * classification, RBIs and runner movement all come from the rules layer.
+ */
+
+type Action = "abs" | "sub";
 
 interface Node {
   key: string;
-  /** Keyboard shortcut for this key. */
   hot: string;
-  /** Scorebook symbol shown on the key. */
   symbol: string;
   label: string;
-  result?: PlayResult;
-  /** Non-play action handled by the parent screen. */
-  action?: "abs" | "sub";
+  batter?: BatterInput;
+  runner?: RunnerInput;
+  action?: Action;
+  /** Multi-step flow that needs more observation from the scorer. */
+  flow?: Flow;
   children?: Node[];
 }
 
-/** Hierarchical menu — never more than three taps to any play. */
+type Flow =
+  | { kind: "out" }
+  | { kind: "error" }
+  | { kind: "sac-bunt" }
+  | { kind: "steal" }
+  | { kind: "pickoff" }
+  | { kind: "dropped-third" };
+
+const BATTED: { key: BattedBallType; hot: string; symbol: string; label: string }[] = [
+  { key: "ground", hot: "g", symbol: "GB", label: "Ground Ball" },
+  { key: "fly", hot: "f", symbol: "F", label: "Fly Ball" },
+  { key: "line", hot: "l", symbol: "L", label: "Line Drive" },
+  { key: "popup", hot: "p", symbol: "P", label: "Pop Up" },
+];
+
 export const MENU: Node[] = [
   {
     key: "hit",
@@ -25,50 +51,53 @@ export const MENU: Node[] = [
     symbol: "H",
     label: "Hit",
     children: [
-      { key: "1b", hot: "1", symbol: "1B", label: "Single", result: "1B" },
-      { key: "2b", hot: "2", symbol: "2B", label: "Double", result: "2B" },
-      { key: "3b", hot: "3", symbol: "3B", label: "Triple", result: "3B" },
-      { key: "hr", hot: "4", symbol: "HR", label: "Home Run", result: "HR" },
-      { key: "grd", hot: "g", symbol: "GRD", label: "Ground Rule 2B", result: "GRD" },
+      { key: "1b", hot: "1", symbol: "1B", label: "Single", batter: { kind: "hit", bases: 1 } },
+      { key: "2b", hot: "2", symbol: "2B", label: "Double", batter: { kind: "hit", bases: 2 } },
+      { key: "3b", hot: "3", symbol: "3B", label: "Triple", batter: { kind: "hit", bases: 3 } },
+      { key: "hr", hot: "4", symbol: "HR", label: "Home Run", batter: { kind: "hit", bases: 4 } },
+      {
+        key: "grd",
+        hot: "g",
+        symbol: "GRD",
+        label: "Ground Rule 2B",
+        batter: { kind: "hit", bases: 2, groundRule: true },
+      },
     ],
   },
-  {
-    key: "out",
-    hot: "o",
-    symbol: "O",
-    label: "Out",
-    children: [
-      { key: "go", hot: "g", symbol: "GO", label: "Ground Out", result: "GO" },
-      { key: "lo", hot: "l", symbol: "L", label: "Line Out", result: "LO" },
-      { key: "po", hot: "p", symbol: "P", label: "Pop Out", result: "PO" },
-      { key: "pf", hot: "f", symbol: "PF", label: "Pop Foul Out", result: "PF" },
-      { key: "dp", hot: "d", symbol: "DP", label: "Double Play", result: "DP" },
-      { key: "tp", hot: "t", symbol: "TP", label: "Triple Play", result: "TP" },
-    ],
-  },
+  { key: "out", hot: "o", symbol: "O", label: "Out", flow: { kind: "out" } },
   {
     key: "k",
     hot: "k",
     symbol: "K",
     label: "Strikeout",
     children: [
-      { key: "ks", hot: "s", symbol: "K", label: "Swinging", result: "K_SWING" },
-      { key: "kl", hot: "l", symbol: "L", label: "Looking", result: "K_LOOK" },
+      {
+        key: "ks",
+        hot: "s",
+        symbol: "K",
+        label: "Swinging",
+        batter: { kind: "strikeout", swinging: true },
+      },
+      {
+        key: "kl",
+        hot: "l",
+        symbol: "L",
+        label: "Looking",
+        batter: { kind: "strikeout", swinging: false },
+      },
+      {
+        key: "k3",
+        hot: "d",
+        symbol: "K2-3",
+        label: "Dropped 3rd",
+        flow: { kind: "dropped-third" },
+      },
     ],
   },
-  { key: "bb", hot: "w", symbol: "BB", label: "Walk", result: "BB" },
-  { key: "hbp", hot: "y", symbol: "HBP", label: "Hit By Pitch", result: "HBP" },
-  { key: "e", hot: "e", symbol: "E", label: "Error", result: "E" },
-  {
-    key: "sac",
-    hot: "s",
-    symbol: "SAC",
-    label: "Sacrifice",
-    children: [
-      { key: "sf", hot: "f", symbol: "SF", label: "Sac Fly (RBI)", result: "SF" },
-      { key: "sh", hot: "b", symbol: "SH", label: "Sac Bunt", result: "SH" },
-    ],
-  },
+  { key: "bb", hot: "w", symbol: "BB", label: "Walk", batter: { kind: "walk" } },
+  { key: "hbp", hot: "y", symbol: "HBP", label: "Hit By Pitch", batter: { kind: "hbp" } },
+  { key: "e", hot: "e", symbol: "E", label: "Error", flow: { kind: "error" } },
+  { key: "steal", hot: "t", symbol: "SB", label: "Stolen Base", flow: { kind: "steal" } },
   {
     key: "other",
     hot: "x",
@@ -76,29 +105,36 @@ export const MENU: Node[] = [
     label: "Other",
     children: [
       { key: "abs", hot: "a", symbol: "ABS", label: "ABS Challenge", action: "abs" },
-      { key: "ibb", hot: "i", symbol: "IBB", label: "Intentional Walk", result: "IBB" },
-      { key: "ci", hot: "c", symbol: "CI", label: "Catcher's Interference", result: "CI" },
-      { key: "obs", hot: "b", symbol: "OB", label: "Obstruction", result: "OBSTRUCTION" },
-      { key: "int", hot: "n", symbol: "INT", label: "Interference", result: "INTERFERENCE" },
+      {
+        key: "ibb",
+        hot: "i",
+        symbol: "IBB",
+        label: "Intentional Walk",
+        batter: { kind: "walk", intentional: true },
+      },
+      { key: "sh", hot: "b", symbol: "SH", label: "Sac Bunt", flow: { kind: "sac-bunt" } },
+      { key: "wp", hot: "w", symbol: "WP", label: "Wild Pitch", runner: { kind: "wild-pitch" } },
+      { key: "pb", hot: "p", symbol: "PB", label: "Passed Ball", runner: { kind: "passed-ball" } },
+      { key: "bk", hot: "k", symbol: "BK", label: "Balk", runner: { kind: "balk" } },
+      { key: "po", hot: "o", symbol: "PO", label: "Pickoff", flow: { kind: "pickoff" } },
+      {
+        key: "di",
+        hot: "d",
+        symbol: "DI",
+        label: "Defensive Indifference",
+        flow: { kind: "steal" },
+      },
+      {
+        key: "ci",
+        hot: "c",
+        symbol: "CI",
+        label: "Catcher's Interference",
+        batter: { kind: "catcher-interference" },
+      },
     ],
   },
   { key: "sub", hot: "u", symbol: "SUB", label: "Substitution", action: "sub" },
 ];
-
-const NEEDS_FIELDERS: PlayResult[] = [
-  "GO",
-  "PF",
-  "LO",
-  "PO",
-  "DP",
-  "TP",
-  "E",
-  "SF",
-  "SH",
-];
-
-/** Air outs are always recorded by exactly one fielder. */
-const SINGLE_FIELDER: PlayResult[] = ["LO", "PO", "PF", "SF"];
 
 const POSITIONS = [
   { n: 1, label: "P" },
@@ -112,61 +148,179 @@ const POSITIONS = [
   { n: 9, label: "RF" },
 ];
 
+const BASE_LABEL: Record<Base, string> = { 1: "1st", 2: "2nd", 3: "3rd" };
+
 interface PlayEntryProps {
-  onSelect: (result: PlayResult, fielders: number[]) => void;
-  onAction?: (action: "abs" | "sub") => void;
-  /** Reports menu depth so the parent can pause its own hotkeys. */
+  /** Runners currently on base, for steal / retired pickers. */
+  bases: Record<Base, string | null>;
+  nameOf: (id: string) => string;
+  onPlay: (input: BatterInput) => void;
+  onRunnerPlay: (input: RunnerInput) => void;
+  onAction?: (action: Action) => void;
   onDepthChange?: (depth: number) => void;
 }
 
-export function PlayEntry({ onSelect, onAction, onDepthChange }: PlayEntryProps) {
+type Stage =
+  | { name: "menu" }
+  | { name: "batted-type"; flow: Flow }
+  | { name: "fielders"; flow: Flow; batted: BattedBallType }
+  | { name: "retired"; batted: BattedBallType; fielders: number[] }
+  | { name: "steal-runners"; indifference: boolean }
+  | { name: "steal-outcome"; runners: Base[]; indifference: boolean }
+  | { name: "pickoff-base" }
+  | { name: "pickoff-outcome"; from: Base }
+  | { name: "dropped-cause" }
+  | { name: "dropped-outcome"; cause: "wild-pitch" | "passed-ball" | "throw" };
+
+export function PlayEntry({
+  bases,
+  nameOf,
+  onPlay,
+  onRunnerPlay,
+  onAction,
+  onDepthChange,
+}: PlayEntryProps) {
   const [path, setPath] = useState<Node[]>([]);
-  const [pending, setPending] = useState<PlayResult | null>(null);
+  const [stage, setStage] = useState<Stage>({ name: "menu" });
   const [fielders, setFielders] = useState<number[]>([]);
+  const [retired, setRetired] = useState<OutTarget[]>(["batter"]);
+  const [runners, setRunners] = useState<Base[]>([]);
 
-  const reset = () => {
+  const occupied = useMemo(
+    () => ([1, 2, 3] as Base[]).filter((b) => bases[b]),
+    [bases],
+  );
+
+  const reset = useCallback(() => {
     setPath([]);
-    setPending(null);
+    setStage({ name: "menu" });
     setFielders([]);
-  };
+    setRetired(["batter"]);
+    setRunners([]);
+  }, []);
 
-  const choose = (node: Node) => {
-    if (node.children?.length) {
-      setPath((p) => [...p, node]);
-      return;
-    }
-    if (node.action) {
-      onAction?.(node.action);
+  const commitPlay = useCallback(
+    (input: BatterInput) => {
+      onPlay(input);
       reset();
-      return;
-    }
-    const result = node.result!;
-    if (NEEDS_FIELDERS.includes(result)) {
-      setPending(result);
+    },
+    [onPlay, reset],
+  );
+
+  const commitRunner = useCallback(
+    (input: RunnerInput) => {
+      onRunnerPlay(input);
+      reset();
+    },
+    [onRunnerPlay, reset],
+  );
+
+  const startFlow = useCallback(
+    (flow: Flow, node?: Node) => {
+      switch (flow.kind) {
+        case "out":
+        case "error":
+          setStage({ name: "batted-type", flow });
+          break;
+        case "sac-bunt":
+          setFielders([]);
+          setStage({ name: "fielders", flow, batted: "bunt" });
+          break;
+        case "steal": {
+          const indifference = node?.key === "di";
+          if (occupied.length === 1) {
+            setStage({ name: "steal-outcome", runners: [occupied[0]], indifference });
+          } else {
+            setRunners([]);
+            setStage({ name: "steal-runners", indifference });
+          }
+          break;
+        }
+        case "pickoff":
+          setStage({ name: "pickoff-base" });
+          break;
+        case "dropped-third":
+          setStage({ name: "dropped-cause" });
+          break;
+      }
+    },
+    [occupied],
+  );
+
+  const choose = useCallback(
+    (node: Node) => {
+      if (node.children?.length) {
+        setPath((p) => [...p, node]);
+        return;
+      }
+      if (node.action) {
+        onAction?.(node.action);
+        reset();
+        return;
+      }
+      if (node.flow) {
+        startFlow(node.flow, node);
+        return;
+      }
+      if (node.batter) commitPlay(node.batter);
+      else if (node.runner) commitRunner(node.runner);
+    },
+    [commitPlay, commitRunner, onAction, reset, startFlow],
+  );
+
+  const back = useCallback(() => {
+    if (stage.name !== "menu") {
+      setStage({ name: "menu" });
       setFielders([]);
+      setRetired(["batter"]);
       return;
     }
-    onSelect(result, []);
-    reset();
-  };
+    setPath((p) => p.slice(0, -1));
+  }, [stage]);
 
   const current = path[path.length - 1];
   const nodes = current ? current.children! : MENU;
-  const depth = pending ? path.length + 1 : path.length;
-  const singleFielder = pending ? SINGLE_FIELDER.includes(pending) : false;
-
-  const pick = (result: PlayResult, n: number) => {
-    if (SINGLE_FIELDER.includes(result)) {
-      onSelect(result, [n]);
-      reset();
-      return;
-    }
-    setFielders((f) => [...f, n]);
-  };
+  const depth = stage.name === "menu" ? path.length : path.length + 1;
 
   useEffect(() => {
     onDepthChange?.(depth);
   }, [depth, onDepthChange]);
+
+  const finishFielders = useCallback(
+    (flow: Flow, batted: BattedBallType, picked: number[]) => {
+      if (flow.kind === "error") {
+        commitPlay({ kind: "batted", batted, fielders: picked, retired: [], errorFielders: picked });
+        return;
+      }
+      if (flow.kind === "sac-bunt") {
+        commitPlay({ kind: "sac-bunt", fielders: picked, retired: ["batter"] });
+        return;
+      }
+      // Out: the scorer only picks who was retired when runners are aboard.
+      if (occupied.length === 0) {
+        commitPlay({ kind: "batted", batted, fielders: picked, retired: ["batter"] });
+        return;
+      }
+      setRetired(["batter"]);
+      setStage({ name: "retired", batted, fielders: picked });
+    },
+    [commitPlay, occupied.length],
+  );
+
+  const pickFielder = useCallback(
+    (n: number) => {
+      if (stage.name !== "fielders") return;
+      const single = stage.flow.kind === "out" && stage.batted !== "ground";
+      const next = [...fielders, n];
+      if (single) {
+        finishFielders(stage.flow, stage.batted, [n]);
+        setFielders([]);
+        return;
+      }
+      setFielders(next);
+    },
+    [fielders, finishFielders, stage],
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -175,26 +329,39 @@ export function PlayEntry({ onSelect, onAction, onDepthChange }: PlayEntryProps)
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const k = e.key.toLowerCase();
 
-      if (pending) {
-        if (/^[1-9]$/.test(k)) {
-          pick(pending, Number(k));
-        } else if (e.key === "Enter") {
-          onSelect(pending, fielders);
-          reset();
-        } else if (e.key === "Backspace") {
-          setFielders((f) => f.slice(0, -1));
-        } else if (e.key === "Escape") {
-          setPending(null);
-          setFielders([]);
-        } else {
-          return;
-        }
+      if (stage.name === "fielders") {
+        if (/^[1-9]$/.test(k)) pickFielder(Number(k));
+        else if (e.key === "Enter" && fielders.length) finishFielders(stage.flow, stage.batted, fielders);
+        else if (e.key === "Backspace") setFielders((f) => f.slice(0, -1));
+        else if (e.key === "Escape") back();
+        else return;
         e.preventDefault();
         return;
       }
 
+      if (stage.name === "batted-type") {
+        const b = BATTED.find((x) => x.hot === k);
+        if (b) {
+          setFielders([]);
+          setStage({ name: "fielders", flow: stage.flow, batted: b.key });
+          e.preventDefault();
+        } else if (e.key === "Escape") {
+          back();
+          e.preventDefault();
+        }
+        return;
+      }
+
+      if (stage.name !== "menu") {
+        if (e.key === "Escape") {
+          back();
+          e.preventDefault();
+        }
+        return;
+      }
+
       if (e.key === "Escape" && path.length) {
-        setPath((p) => p.slice(0, -1));
+        back();
         e.preventDefault();
         return;
       }
@@ -208,15 +375,43 @@ export function PlayEntry({ onSelect, onAction, onDepthChange }: PlayEntryProps)
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  if (pending) {
+  /* ----------------------------- stages ----------------------------- */
+
+  if (stage.name === "batted-type") {
     return (
       <div className="space-y-2">
         <Header
-          title={`${RESULT_LABELS[pending]} — ${singleFielder ? "position" : "position numbers"}`}
-          onBack={() => {
-            setPending(null);
-            setFielders([]);
-          }}
+          title={stage.flow.kind === "error" ? "Error — batted ball" : "Out — batted ball"}
+          onBack={back}
+        />
+        <div className="grid grid-cols-4 gap-2">
+          {BATTED.map((b) => (
+            <Button
+              key={b.key}
+              variant="secondary"
+              className="relative h-12 flex-col gap-0"
+              onClick={() => {
+                setFielders([]);
+                setStage({ name: "fielders", flow: stage.flow, batted: b.key });
+              }}
+            >
+              <span className="font-mono text-base font-bold leading-none">{b.symbol}</span>
+              <span className="text-[10px] font-normal opacity-80">{b.label}</span>
+              <Hint k={b.hot.toUpperCase()} corner />
+            </Button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (stage.name === "fielders") {
+    const single = stage.flow.kind === "out" && stage.batted !== "ground";
+    return (
+      <div className="space-y-2">
+        <Header
+          title={`${stage.flow.kind === "error" ? "Error" : stage.flow.kind === "sac-bunt" ? "Sac bunt" : "Out"} — ${single ? "position" : "position numbers"}`}
+          onBack={back}
         />
         <div className="grid grid-cols-5 gap-1.5">
           {POSITIONS.map((p) => (
@@ -224,33 +419,31 @@ export function PlayEntry({ onSelect, onAction, onDepthChange }: PlayEntryProps)
               key={p.n}
               variant="outline"
               className="h-11 flex-col gap-0"
-              onClick={() => pick(pending, p.n)}
+              onClick={() => pickFielder(p.n)}
             >
               <span className="font-mono text-lg font-bold leading-none">{p.n}</span>
               <span className="text-[10px] text-muted-foreground">{p.label}</span>
             </Button>
           ))}
         </div>
-        {!singleFielder && (
-        <div className="flex items-center gap-2">
-          <div className="flex h-11 flex-1 items-center rounded-md border border-border px-3 font-mono text-lg">
-            {fielders.join("-") || "—"}
+        {!single && (
+          <div className="flex items-center gap-2">
+            <div className="flex h-11 flex-1 items-center rounded-md border border-border px-3 font-mono text-lg">
+              {fielders.join("-") || "—"}
+            </div>
+            <Button variant="ghost" className="h-11" onClick={() => setFielders([])}>
+              Clear
+            </Button>
+            <Button
+              className="h-11 px-6"
+              disabled={!fielders.length}
+              onClick={() => finishFielders(stage.flow, stage.batted, fielders)}
+            >
+              Apply <Hint k="↵" />
+            </Button>
           </div>
-          <Button variant="ghost" className="h-11" onClick={() => setFielders([])}>
-            Clear
-          </Button>
-          <Button
-            className="h-11 px-6"
-            onClick={() => {
-              onSelect(pending, fielders);
-              reset();
-            }}
-          >
-            Apply <Hint k="↵" />
-          </Button>
-        </div>
         )}
-        {pending === "E" && fielders.length > 1 && (
+        {stage.flow.kind === "error" && fielders.length > 1 && (
           <p className="text-xs text-muted-foreground">
             {fielders.length} errors will be charged on this play.
           </p>
@@ -259,9 +452,222 @@ export function PlayEntry({ onSelect, onAction, onDepthChange }: PlayEntryProps)
     );
   }
 
+  if (stage.name === "retired") {
+    const toggle = (t: OutTarget) =>
+      setRetired((r) => (r.includes(t) ? r.filter((x) => x !== t) : [...r, t]));
+    return (
+      <div className="space-y-2">
+        <Header title={`${fielders.join("-")} — who was retired?`} onBack={back} />
+        <div className="grid grid-cols-4 gap-2">
+          <Button
+            variant={retired.includes("batter") ? "default" : "outline"}
+            className="h-12 flex-col gap-0"
+            onClick={() => toggle("batter")}
+          >
+            <span className="text-sm font-bold">Batter</span>
+          </Button>
+          {occupied.map((b) => (
+            <Button
+              key={b}
+              variant={retired.includes(b) ? "default" : "outline"}
+              className="h-12 flex-col gap-0"
+              onClick={() => toggle(b)}
+            >
+              <span className="text-sm font-bold">{BASE_LABEL[b]}</span>
+              <span className="max-w-full truncate text-[10px] opacity-80">
+                {nameOf(bases[b]!)}
+              </span>
+            </Button>
+          ))}
+        </div>
+        <Button
+          className="h-12 w-full text-base"
+          onClick={() =>
+            commitPlay({
+              kind: "batted",
+              batted: stage.batted,
+              fielders: stage.fielders,
+              retired,
+            })
+          }
+        >
+          Record Play
+        </Button>
+      </div>
+    );
+  }
+
+  if (stage.name === "steal-runners") {
+    const toggle = (b: Base) =>
+      setRunners((r) => (r.includes(b) ? r.filter((x) => x !== b) : [...r, b]));
+    return (
+      <div className="space-y-2">
+        <Header title="Which runner(s) went?" onBack={back} />
+        <div className="grid grid-cols-3 gap-2">
+          {occupied.map((b) => (
+            <Button
+              key={b}
+              variant={runners.includes(b) ? "default" : "outline"}
+              className="h-12 flex-col gap-0"
+              onClick={() => toggle(b)}
+            >
+              <span className="text-sm font-bold">{BASE_LABEL[b]}</span>
+              <span className="max-w-full truncate text-[10px] opacity-80">{nameOf(bases[b]!)}</span>
+            </Button>
+          ))}
+        </div>
+        <Button
+          className="h-12 w-full"
+          disabled={!runners.length}
+          onClick={() =>
+            setStage({ name: "steal-outcome", runners, indifference: stage.indifference })
+          }
+        >
+          Continue
+        </Button>
+      </div>
+    );
+  }
+
+  if (stage.name === "steal-outcome") {
+    const send = (safe: boolean) => {
+      if (stage.indifference && safe) {
+        commitRunner({ kind: "defensive-indifference", from: stage.runners[0] });
+        return;
+      }
+      commitRunner({
+        kind: "steal",
+        attempts: stage.runners.map((from) => ({ from, safe })),
+      });
+    };
+    return (
+      <div className="space-y-2">
+        <Header title="Stolen base attempt" onBack={back} />
+        <div className="grid grid-cols-2 gap-2">
+          <Button className="h-14 text-base" onClick={() => send(true)}>
+            Safe (SB)
+          </Button>
+          <Button variant="secondary" className="h-14 text-base" onClick={() => send(false)}>
+            Caught (CS)
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (stage.name === "pickoff-base") {
+    return (
+      <div className="space-y-2">
+        <Header title="Pickoff — which runner?" onBack={back} />
+        <div className="grid grid-cols-3 gap-2">
+          {occupied.map((b) => (
+            <Button
+              key={b}
+              variant="outline"
+              className="h-12 flex-col gap-0"
+              onClick={() => setStage({ name: "pickoff-outcome", from: b })}
+            >
+              <span className="text-sm font-bold">{BASE_LABEL[b]}</span>
+              <span className="max-w-full truncate text-[10px] opacity-80">{nameOf(bases[b]!)}</span>
+            </Button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (stage.name === "pickoff-outcome") {
+    return (
+      <div className="space-y-2">
+        <Header title="Pickoff" onBack={back} />
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            className="h-14 text-base"
+            onClick={() => commitRunner({ kind: "pickoff", from: stage.from, out: true, fielders: [1, 3] })}
+          >
+            Runner Out
+          </Button>
+          <Button
+            variant="secondary"
+            className="h-14 text-base"
+            onClick={() =>
+              commitRunner({ kind: "pickoff", from: stage.from, out: false, errorFielders: [1] })
+            }
+          >
+            Pickoff Error
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (stage.name === "dropped-cause") {
+    const causes: { key: "wild-pitch" | "passed-ball" | "throw"; label: string }[] = [
+      { key: "wild-pitch", label: "Wild Pitch" },
+      { key: "passed-ball", label: "Passed Ball" },
+      { key: "throw", label: "Throw to 1st" },
+    ];
+    return (
+      <div className="space-y-2">
+        <Header title="Dropped third strike" onBack={back} />
+        <div className="grid grid-cols-3 gap-2">
+          {causes.map((c) => (
+            <Button
+              key={c.key}
+              variant="secondary"
+              className="h-12"
+              onClick={() => setStage({ name: "dropped-outcome", cause: c.key })}
+            >
+              {c.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (stage.name === "dropped-outcome") {
+    return (
+      <div className="space-y-2">
+        <Header title="Dropped third strike" onBack={back} />
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            className="h-14 text-base"
+            onClick={() =>
+              commitPlay({
+                kind: "dropped-third",
+                swinging: true,
+                cause: stage.cause,
+                batterSafe: true,
+                fielders: stage.cause === "throw" ? [2, 3] : [],
+              })
+            }
+          >
+            Batter Safe
+          </Button>
+          <Button
+            variant="secondary"
+            className="h-14 text-base"
+            onClick={() =>
+              commitPlay({
+                kind: "dropped-third",
+                swinging: true,
+                cause: stage.cause,
+                batterSafe: false,
+                fielders: [2, 3],
+              })
+            }
+          >
+            Batter Out
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
-      {current && <Header title={current.label} onBack={() => setPath((p) => p.slice(0, -1))} />}
+      {current && <Header title={current.label} onBack={back} />}
       <div className="grid grid-cols-3 gap-2">
         {nodes.map((node) => (
           <Button

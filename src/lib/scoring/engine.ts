@@ -338,6 +338,7 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
         position: ev.position,
         battingTeam,
         battingSlot: state.slot[battingTeam] % Math.max(state.lineup[battingTeam].length, 1),
+        afterPlayId: state.plays.length ? state.plays[state.plays.length - 1].id : null,
       });
       if (typeof ev.slot === "number" && ev.slot >= 0 && ev.slot < order.length) {
         order[ev.slot] = ev.inPlayerId;

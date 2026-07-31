@@ -305,6 +305,8 @@ export interface SubRecord {
   position?: string;
   battingTeam: TeamSide;
   battingSlot: number;
+  /** Id of the last play recorded before this substitution, if any. */
+  afterPlayId: string | null;
 }
 
 /** A play, with the resolved official result and its game context. */

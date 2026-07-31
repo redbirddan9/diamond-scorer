@@ -483,7 +483,7 @@ function GameScreen() {
 
 function Scoreboard({ state, trackPitches }: { state: GameState; trackPitches: boolean }) {
   const cell = (label: string, value: string | number) => (
-    <div className="flex flex-col items-center">
+    <div className="flex items-center gap-1">
       <span className="text-[9px] uppercase tracking-widest text-muted-foreground">{label}</span>
       <span className="font-mono text-lg font-bold leading-tight">{value}</span>
     </div>
@@ -517,9 +517,9 @@ function Scoreboard({ state, trackPitches }: { state: GameState; trackPitches: b
           ? cell("Final", `${Math.max(state.inning - 1, state.setup.innings)}`)
           : cell("Inn", `${state.half === "top" ? "▲" : "▼"}${state.inning}`)}
         {trackPitches && !state.over && cell("B-S", `${state.balls}-${state.strikes}`)}
-        <div className="flex flex-col items-center">
+        <div className="flex items-center gap-1">
           <span className="text-[9px] uppercase tracking-widest text-muted-foreground">Out</span>
-          <span className="mt-1 flex gap-1">
+          <span className="flex gap-1">
             {[0, 1].map((i) => (
               <span
                 key={i}

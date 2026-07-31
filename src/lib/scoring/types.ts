@@ -40,6 +40,16 @@ export interface Umpires {
   third?: string;
 }
 
+/** Official pitching decisions, assigned by the scorer once the game ends. */
+export interface PitchingDecisions {
+  /** Player id credited with the win. */
+  win?: string;
+  /** Player id charged with the loss. */
+  loss?: string;
+  /** Player id credited with the save. */
+  save?: string;
+}
+
 export interface GameSetup {
   id: string;
   createdAt: string;
@@ -54,6 +64,8 @@ export interface GameSetup {
   /** Track balls/strikes/fouls during the game. */
   trackPitches?: boolean;
   umpires: Umpires;
+  /** Win / Loss / Save assignments. */
+  decisions?: PitchingDecisions;
   innings: number;
   away: TeamSetup;
   home: TeamSetup;

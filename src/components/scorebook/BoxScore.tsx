@@ -60,6 +60,9 @@ export function BoxScore({ state, side }: { state: GameState; side: TeamSide }) 
   const totals = teamTotals(state, side);
   const nameOf = (id: string) =>
     [...state.setup[side].players].find((p) => p.id === id)?.name ?? id;
+  const decisions = state.setup.decisions;
+  const decisionFor = (id: string) =>
+    decisions?.win === id ? "W" : decisions?.loss === id ? "L" : decisions?.save === id ? "S" : null;
 
   return (
     <section className="space-y-6">
@@ -113,7 +116,12 @@ export function BoxScore({ state, side }: { state: GameState; side: TeamSide }) 
             <tbody>
               {pitchers.map((p) => (
                 <tr key={p.playerId}>
-                  <td className="border border-border p-1.5 font-medium">{nameOf(p.playerId)}</td>
+                  <td className="border border-border p-1.5 font-medium">
+                    {nameOf(p.playerId)}
+                    {decisionFor(p.playerId) && (
+                      <span className="ml-1 font-mono font-bold">({decisionFor(p.playerId)})</span>
+                    )}
+                  </td>
                   {[p.ip, p.h, p.r, p.er, p.hr, p.so, p.bb, p.hbp, p.bf, p.pitches].map((v, i) => (
                     <td key={i} className="border border-border p-1.5 font-mono">{v}</td>
                   ))}

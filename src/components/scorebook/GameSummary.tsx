@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { BoxScore, LineScore } from "./BoxScore";
-import type { GameSetup, GameState } from "@/lib/scoring/types";
+import { pitchingStats } from "@/lib/scoring/stats";
+import type { GameSetup, GameState, TeamSide } from "@/lib/scoring/types";
 
 interface Props {
   state: GameState;
@@ -28,6 +29,43 @@ export function GameSummary({ state, onSaveInfo }: Props) {
     notes: setup.notes ?? "",
   });
   const [saved, setSaved] = useState(false);
+  const [decisions, setDecisions] = useState({
+    win: setup.decisions?.win ?? "",
+    loss: setup.decisions?.loss ?? "",
+    save: setup.decisions?.save ?? "",
+  });
+  const [decisionsSaved, setDecisionsSaved] = useState(false);
+
+  const pitcherOptions = (["away", "home"] as TeamSide[]).flatMap((side) =>
+    pitchingStats(state, side).map((p) => ({
+      id: p.playerId,
+      label: `${setup[side].players.find((pl) => pl.id === p.playerId)?.name ?? p.playerId} (${setup[side].name})`,
+    })),
+  );
+
+  const decisionField = (key: "win" | "loss" | "save", label: string) => (
+    <div className="space-y-1">
+      <Label htmlFor={`dec-${key}`} className="text-[11px] uppercase text-muted-foreground">
+        {label}
+      </Label>
+      <select
+        id={`dec-${key}`}
+        className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
+        value={decisions[key]}
+        onChange={(e) => {
+          setDecisions({ ...decisions, [key]: e.target.value });
+          setDecisionsSaved(false);
+        }}
+      >
+        <option value="">— none —</option>
+        {pitcherOptions.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 
   const field = (key: keyof typeof info, label: string, type = "text") => (
     <div className="space-y-1">
@@ -60,6 +98,31 @@ export function GameSummary({ state, onSaveInfo }: Props) {
       </div>
 
       <LineScore state={state} />
+
+      <div className="rounded-md border border-border p-3">
+        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide">Pitching decisions</h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {decisionField("win", "Win (W)")}
+          {decisionField("loss", "Loss (L)")}
+          {decisionField("save", "Save (S)")}
+        </div>
+        <Button
+          className="mt-3 h-11 print:hidden"
+          onClick={() => {
+            onSaveInfo({
+              decisions: {
+                win: decisions.win || undefined,
+                loss: decisions.loss || undefined,
+                save: decisions.save || undefined,
+              },
+            });
+            setDecisionsSaved(true);
+          }}
+        >
+          {decisionsSaved ? "Saved" : "Save decisions"}
+        </Button>
+      </div>
+
       <BoxScore state={state} side="away" />
       <BoxScore state={state} side="home" />
 

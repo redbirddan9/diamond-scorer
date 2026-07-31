@@ -110,6 +110,9 @@ function ScoreCell({ cell }: { cell?: CellModel }) {
         {pitcherChange && <path d="M60 60 L60 44 L44 60 Z" className="fill-ink" />}
       </svg>
       <div className="relative flex h-full flex-col items-center justify-center leading-none">
+        {marks.above && (
+          <span className="font-mono text-[9px] font-bold">{marks.above}</span>
+        )}
         <span className="font-mono text-[13px] font-bold">
           {marks.main}
           {marks.sub && <sub className="text-[9px] font-semibold">{marks.sub}</sub>}

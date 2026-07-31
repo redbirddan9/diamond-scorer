@@ -244,7 +244,17 @@ export interface AbsEvent {
   outcome: AbsOutcome;
 }
 
-export type GameEvent = PlayEvent | RunnerEvent | PitchEvent | SubEvent | AbsEvent;
+/** Assigns (or corrects) a fielder's defensive position, e.g. a PH taking the field. */
+export interface PositionEvent {
+  id: string;
+  type: "position";
+  ts: string;
+  team: TeamSide;
+  playerId: string;
+  position: string;
+}
+
+export type GameEvent = PlayEvent | RunnerEvent | PitchEvent | SubEvent | AbsEvent | PositionEvent;
 
 export interface AbsChallengeLog {
   inning: number;
@@ -267,6 +277,8 @@ export interface SubRecord {
   position?: string;
   battingTeam: TeamSide;
   battingSlot: number;
+  /** Number of plays already logged when the substitution happened. */
+  playIndex?: number;
 }
 
 /** A play, with the resolved official result and its game context. */

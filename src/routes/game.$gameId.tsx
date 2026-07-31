@@ -280,6 +280,24 @@ function GameScreen() {
             </div>
           </div>
 
+          {mode === "play" && !pending && !strikeThree && assignTarget ? (
+            <PositionAssign
+              state={state}
+              pending={assignTarget}
+              onSkip={() => setSkipAssign((s) => [...s, assignTarget.playerId])}
+              onAssign={(position) => {
+                session.commit({
+                  id: newId(),
+                  type: "position",
+                  ts: new Date().toISOString(),
+                  team: assignTarget.team,
+                  playerId: assignTarget.playerId,
+                  position,
+                });
+              }}
+            />
+          ) : null}
+
           {mode === "abs" ? (
             <div className="rounded-md border border-border bg-card p-3">
               <AbsPanel state={state} onSubmit={submitAbs} onCancel={() => setMode("play")} />

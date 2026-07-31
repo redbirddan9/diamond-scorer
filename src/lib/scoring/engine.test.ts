@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createInitialState, currentBatterId, reduceEvents } from "./engine";
+import { applyEvent, createInitialState, currentBatterId, reduceEvents } from "./engine";
 import { resolvePlay, validate } from "./rules";
 import type { BatterInput, GameEvent, GameSetup } from "./types";
 

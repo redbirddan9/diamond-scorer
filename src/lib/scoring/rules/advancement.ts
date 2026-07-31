@@ -114,7 +114,8 @@ export function resolveRunnerAdvancement(
     switch (input.kind) {
       case "hit": {
         to = advanceBy(from, input.bases);
-        certain = input.bases >= 3 || to === 4 || Boolean(input.groundRule);
+        // Hits use standard base-for-base advancement; no scorer input needed.
+        certain = true;
         break;
       }
       case "walk":
@@ -131,7 +132,7 @@ export function resolveRunnerAdvancement(
       }
       case "dropped-third": {
         to = forced.includes(from) || !batterReaches ? advanceBy(from, 1) : (from as unknown as Destination);
-        certain = forced.includes(from);
+        certain = true;
         break;
       }
       case "sac-bunt": {
@@ -141,18 +142,22 @@ export function resolveRunnerAdvancement(
       }
       case "batted": {
         if (forced.includes(from)) {
+          // Routine force (including force double plays): destination is known.
           to = advanceBy(from, 1);
           certain = true;
         } else if (hasError) {
+          // Extra bases on an error are a scorer judgment.
           to = advanceBy(from, 1);
           certain = false;
         } else if (isAir) {
+          // Caught fly/line/pop: the runner may hold or tag up and advance.
           to = from as unknown as Destination;
-          certain = false;
+          certain = batterReaches;
         } else {
-          // ground ball with the batter retired: runners take the next base
+          // Ground ball, unforced runner: holds when the batter reaches,
+          // otherwise takes the next base. Both are the routine outcome.
           to = batterReaches ? (from as unknown as Destination) : advanceBy(from, 1);
-          certain = false;
+          certain = true;
         }
         break;
       }

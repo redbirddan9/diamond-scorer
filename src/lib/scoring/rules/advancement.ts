@@ -122,7 +122,7 @@ function applySecondary(
   if (secondary.runner === "batter") {
     if (batterTo === "out" || batterTo === null) return { advances, batterTo };
     const to = bump(batterTo, extra);
-    marks.push({ runnerId: batterId, base: to === 4 ? 4 : to, label });
+    marks.push({ runnerId: batterId, base: typeof to === "number" ? to : 4, label });
     return { advances, batterTo: to };
   }
 
@@ -133,7 +133,7 @@ function applySecondary(
   const current: Destination = existing ? existing.to : (from as Destination);
   if (current === "out") return { advances, batterTo };
   const to = bump(current, extra);
-  marks.push({ runnerId, base: to === 4 ? 4 : to, label });
+  marks.push({ runnerId, base: typeof to === "number" ? to : 4, label });
   const next = advances.filter((a) => a.from !== from);
   next.push({ runnerId, from, to, reason: "error", errorFielder: secondary.fielder });
   return { advances: next, batterTo };

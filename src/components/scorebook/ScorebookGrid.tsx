@@ -131,7 +131,8 @@ function ScoreCell({ cell }: { cell?: CellModel }) {
     const b = corners[p.to];
     if (!a || !b) return null;
     const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-    return { key: `${i}-${p.label}`, x: mid[0], y: mid[1], label: p.label };
+    const pushed = pushOut(mid[0], mid[1], 9);
+    return { key: `${i}-${p.label}`, x: pushed.x, y: pushed.y, label: p.label };
   });
 
   return (
@@ -148,10 +149,8 @@ function ScoreCell({ cell }: { cell?: CellModel }) {
         {pitcherChange && <path d="M60 60 L60 44 L44 60 Z" className="fill-ink" />}
         {errorAdvance && eaMid && (
           <text
-            x={eaMid[0]}
-            y={eaMid[1]}
-            dx={eaMid[0] < 30 ? -3 : 3}
-            dy={eaMid[1] < 32 ? -2 : 4}
+            x={pushOut(eaMid[0], eaMid[1], 9).x}
+            y={pushOut(eaMid[0], eaMid[1], 9).y}
             textAnchor="middle"
             className="fill-ink font-mono"
             fontSize="8"
@@ -167,8 +166,6 @@ function ScoreCell({ cell }: { cell?: CellModel }) {
                 key={m.key}
                 x={m.x}
                 y={m.y}
-                dx={m.x < 30 ? -3 : 3}
-                dy={m.y < 32 ? -2 : 4}
                 textAnchor="middle"
                 className="fill-ink font-mono"
                 fontSize="8"

@@ -71,6 +71,7 @@ function NewGame() {
     teams: [] as string[],
     stadiums: [] as string[],
     cities: [] as string[],
+    players: [] as string[],
   });
   useEffect(() => {
     setTemplates(loadTemplates());
@@ -78,6 +79,7 @@ function NewGame() {
       teams: loadRecall("teams"),
       stadiums: loadRecall("stadiums"),
       cities: loadRecall("cities"),
+      players: loadRecall("players"),
     });
   }, []);
 
@@ -131,6 +133,7 @@ function NewGame() {
     rememberRecall("teams", meta.awayName, meta.homeName);
     rememberRecall("stadiums", meta.stadium);
     rememberRecall("cities", meta.city);
+    rememberRecall("players", ...[...away, ...home].map((p) => p.name));
     const game = await createGame(setup);
     void navigate({ to: "/game/$gameId", params: { gameId: game.id } });
   };
@@ -175,6 +178,7 @@ function NewGame() {
         {datalist("recall-teams", recall.teams)}
         {datalist("recall-stadiums", recall.stadiums)}
         {datalist("recall-cities", recall.cities)}
+        {datalist("recall-players", recall.players)}
       </section>
 
       <section className="mt-6 space-y-3">
@@ -324,7 +328,14 @@ function RosterEditor({
               ))}
             </select>
           )}
-          <Button size="sm" variant="outline" onClick={onSaveTemplate}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              rememberRecall("players", ...players.map((p) => p.name));
+              onSaveTemplate();
+            }}
+          >
             Save roster
           </Button>
         </div>
@@ -336,9 +347,12 @@ function RosterEditor({
               <Input
                 className="h-11"
                 value={p.name}
+                list="recall-players"
+                autoComplete="off"
                 placeholder={`Player ${i + 1}`}
                 aria-label="Player name"
                 onChange={(e) => update(i, { name: e.target.value })}
+                onBlur={(e) => rememberRecall("players", e.target.value)}
               />
               <Button
                 type="button"

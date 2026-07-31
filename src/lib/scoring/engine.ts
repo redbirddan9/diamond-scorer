@@ -201,10 +201,13 @@ function applyMovement(
   batterId: string | null,
   batterTo: Destination | null,
   batterReason: AdvanceReason = "hit",
-): { outs: number; scored: string[] } {
+): { outs: number; scored: string[]; taintedRuns: string[]; runResponsibility: Record<string, string> } {
   const offense = battingSide(state);
+  const defense = fieldingSide(state);
   const next = emptyBases();
   const scored: string[] = [];
+  const taintedRuns: string[] = [];
+  const runResponsibility: Record<string, string> = {};
   let outs = 0;
 
   const held = new Set(advances.map((a) => a.from));
@@ -222,6 +225,8 @@ function applyMovement(
       delete state.runnerState[id];
     } else if (adv.to === 4) {
       scored.push(id);
+      if (state.runnerState[id]?.tainted) taintedRuns.push(id);
+      runResponsibility[id] = state.runnerState[id]?.responsiblePitcherId ?? state.pitcher[defense];
       addRun(state, offense);
       delete state.runnerState[id];
     } else {
@@ -238,20 +243,22 @@ function applyMovement(
       delete state.runnerState[batterId];
     } else if (batterTo === 4) {
       scored.push(batterId);
+      if (state.runnerState[batterId]?.tainted) taintedRuns.push(batterId);
+      runResponsibility[batterId] = state.runnerState[batterId]?.responsiblePitcherId ?? state.pitcher[defense];
       addRun(state, offense);
       delete state.runnerState[batterId];
     } else {
       next[batterTo] = batterId;
       state.runnerState[batterId] = {
         runnerId: batterId,
-        responsiblePitcherId: state.pitcher[fieldingSide(state)],
+        responsiblePitcherId: state.pitcher[defense],
         tainted: taintedReason(batterReason),
       };
     }
   }
 
   state.bases = next;
-  return { outs, scored };
+  return { outs, scored, taintedRuns, runResponsibility };
 }
 
 function taintedReason(reason: AdvanceReason): boolean {

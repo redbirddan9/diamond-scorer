@@ -45,7 +45,7 @@ export function ReviewPanel({
   onFinalize,
   onCancel,
 }: ReviewPanelProps) {
-  const resolution = resolvePlay(state, input, overrides, batterId);
+  const resolution = resolvePlay(state, input, overrides);
   const errors = validate(state, input, resolution);
   const preview = applyEvent(state, {
     id: "preview",

@@ -93,16 +93,8 @@ function NameBox({ row }: { row: RowModel }) {
 
 function ScoreCell({ cell }: { cell?: CellModel }) {
   if (!cell) return <div className="h-full w-full" />;
-  const { play, base, scored, outNumber, pitcherChange, paths } = cell;
+  const { play, base, scored, outNumber, pitcherChange } = cell;
   const marks = notationParts(play);
-
-  // Midpoint of each basepath leg and the corner it leads to.
-  const LEG: Record<number, { x: number; y: number; cx: number; cy: number }> = {
-    1: { x: 44, y: 45, cx: 50, cy: 32 },
-    2: { x: 44, y: 19, cx: 30, cy: 12 },
-    3: { x: 16, y: 19, cx: 10, cy: 32 },
-    4: { x: 16, y: 45, cx: 30, cy: 52 },
-  };
 
   return (
     <div className="relative h-full w-full">
@@ -115,36 +107,9 @@ function ScoreCell({ cell }: { cell?: CellModel }) {
         {base >= 2 && <path d="M50 32 L30 12" className="stroke-ink" strokeWidth="2.5" fill="none" />}
         {base >= 3 && <path d="M30 12 L10 32" className="stroke-ink" strokeWidth="2.5" fill="none" />}
         {base >= 4 && <path d="M10 32 L30 52" className="stroke-ink" strokeWidth="2.5" fill="none" />}
-        {Object.entries(paths).map(([k, mark]) => {
-          const leg = LEG[Number(k)];
-          if (!leg) return null;
-          return (
-            <g key={k}>
-              {mark.out && (
-                <circle
-                  cx={leg.cx}
-                  cy={leg.cy}
-                  r="5"
-                  className="fill-none stroke-ink"
-                  strokeWidth="1.2"
-                />
-              )}
-              <text
-                x={leg.x}
-                y={leg.y}
-                textAnchor="middle"
-                className="fill-pencil font-mono"
-                fontSize="8"
-              >
-                {mark.label}
-              </text>
-            </g>
-          );
-        })}
         {pitcherChange && <path d="M60 60 L60 44 L44 60 Z" className="fill-ink" />}
       </svg>
       <div className="relative flex h-full flex-col items-center justify-center leading-none">
-        {marks.above && <span className="font-mono text-[9px] font-bold">{marks.above}</span>}
         <span className="font-mono text-[13px] font-bold">
           {marks.main}
           {marks.sub && <sub className="text-[9px] font-semibold">{marks.sub}</sub>}

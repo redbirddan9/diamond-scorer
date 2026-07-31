@@ -233,7 +233,7 @@ function logPlay(
   const batterId = ev.type === "play" ? ev.batterId : null;
 
   // Every scoring decision comes from the rules layer.
-  const resolution = resolvePlay(state, ev.input, ev.overrides ?? {}, batterId ?? undefined);
+  const resolution = resolvePlay(state, ev.input, ev.overrides ?? {});
 
   if (resolution.isHit) state.hits[offense] += 1;
   state.errors[defense] += resolution.errorFielders.length;
@@ -338,7 +338,6 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
         position: ev.position,
         battingTeam,
         battingSlot: state.slot[battingTeam] % Math.max(state.lineup[battingTeam].length, 1),
-        afterPlayId: state.plays.length ? state.plays[state.plays.length - 1].id : null,
       });
       if (typeof ev.slot === "number" && ev.slot >= 0 && ev.slot < order.length) {
         order[ev.slot] = ev.inPlayerId;

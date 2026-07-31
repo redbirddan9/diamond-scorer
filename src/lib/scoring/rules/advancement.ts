@@ -6,14 +6,12 @@ import type {
   Advance,
   AdvanceReason,
   Base,
-  BasepathMark,
   BatterInput,
   Destination,
   GameState,
   OutTarget,
   RunnerInput,
   RunnerKey,
-  SecondaryError,
 } from "../types";
 import { BASES, advanceBy, forcedBases, keyForBase, occupiedBases } from "./situation";
 
@@ -22,14 +20,12 @@ export interface AdvancementResult {
   /** null when the play has no batter. */
   batterTo: Destination | null;
   outsRecorded: number;
-  marks: BasepathMark[];
   /** Runners whose destination the scorer must confirm. */
   uncertain: RunnerKey[];
 }
 
 type Overrides = Partial<Record<RunnerKey, Destination>>;
 
-/** Caught-ball trajectories — the batter is retired in the air. */
 const AIR: string[] = ["fly", "line", "popup"];
 
 function retiredTargets(input: BatterInput): OutTarget[] {
@@ -46,6 +42,7 @@ function reasonFor(input: BatterInput): AdvanceReason {
       return "hit";
     case "walk":
     case "hbp":
+    case "catcher-interference":
       return "walk";
     case "sac-bunt":
       return "sacrifice";
@@ -66,7 +63,9 @@ function defaultBatterTo(input: BatterInput, retired: OutTarget[]): Destination 
       return input.bases as Destination;
     case "walk":
     case "hbp":
+    case "catcher-interference":
     case "dropped-third":
+      return 1;
     case "batted":
     case "sac-bunt":
       return 1;
@@ -75,80 +74,15 @@ function defaultBatterTo(input: BatterInput, retired: OutTarget[]): Destination 
   }
 }
 
-function bump(to: Destination, bases: number): Destination {
-  if (to === "out" || to === 4) return to;
-  const next = to + bases;
-  return (next >= 4 ? 4 : next) as Destination;
-}
-
-/**
- * Official Rule 5.08(a) — third-out timing.
- *
- * No run may score if the third out of the inning is made by the batter-runner
- * before reaching first base, or by any runner forced out. A third out made by
- * tagging a trailing runner does not nullify runs that crossed the plate first.
- */
-function applyThirdOutRule(
-  state: GameState,
-  advances: Advance[],
-  batterTo: Destination | null,
-): { advances: Advance[]; batterTo: Destination | null } {
-  const outsRecorded = advances.filter((a) => a.to === "out").length + (batterTo === "out" ? 1 : 0);
-  if (state.outs + outsRecorded < 3) return { advances, batterTo };
-
-  const batterRetired = batterTo === "out";
-  const forceOut = advances.some((a) => a.to === "out" && a.reason === "force-out");
-  if (!batterRetired && !forceOut) return { advances, batterTo };
-
-  // Runs are wiped: surviving runners are simply stranded where they were.
-  return {
-    advances: advances.filter((a) => a.to !== 4),
-    batterTo: batterTo === 4 ? null : batterTo,
-  };
-}
-
-/** Apply a secondary error to an already-resolved play. */
-function applySecondary(
-  bases: Record<Base, string | null>,
-  secondary: SecondaryError,
-  advances: Advance[],
-  batterTo: Destination | null,
-  batterId: string,
-  marks: BasepathMark[],
-): { advances: Advance[]; batterTo: Destination | null } {
-  const extra = secondary.bases ?? 1;
-  const label = `E${secondary.fielder}`;
-
-  if (secondary.runner === "batter") {
-    if (batterTo === "out" || batterTo === null) return { advances, batterTo };
-    const to = bump(batterTo, extra);
-    marks.push({ runnerId: batterId, base: typeof to === "number" ? to : 4, label });
-    return { advances, batterTo: to };
-  }
-
-  const from = Number(secondary.runner) as Base;
-  const runnerId = bases[from];
-  if (!runnerId) return { advances, batterTo };
-  const existing = advances.find((a) => a.from === from);
-  const current: Destination = existing ? existing.to : (from as Destination);
-  if (current === "out") return { advances, batterTo };
-  const to = bump(current, extra);
-  marks.push({ runnerId, base: typeof to === "number" ? to : 4, label });
-  const next = advances.filter((a) => a.from !== from);
-  next.push({ runnerId, from, to, reason: "error", errorFielder: secondary.fielder });
-  return { advances: next, batterTo };
-}
-
 /** Resolve every runner movement for a batter play. */
 export function resolveRunnerAdvancement(
   state: GameState,
   input: BatterInput,
   overrides: Overrides = {},
-  batterId = "batter",
 ): AdvancementResult {
   const bases = state.bases;
   const retired = retiredTargets(input);
-  let batterTo: Destination | null = overrides.batter ?? defaultBatterTo(input, retired);
+  const batterTo = overrides.batter ?? defaultBatterTo(input, retired);
   const batterReaches = batterTo !== "out";
   const reason = reasonFor(input);
 
@@ -161,8 +95,7 @@ export function resolveRunnerAdvancement(
     (input.kind === "batted" || input.kind === "dropped-third") && input.errorFielders?.length,
   );
 
-  let advances: Advance[] = [];
-  const marks: BasepathMark[] = [];
+  const advances: Advance[] = [];
   const uncertain: RunnerKey[] = [];
 
   for (const from of BASES) {
@@ -171,8 +104,7 @@ export function resolveRunnerAdvancement(
     const key = keyForBase(from);
 
     if (retiredBases.has(from)) {
-      const forceOut = forcedBases(bases, new Set(occupiedBases(bases))).includes(from);
-      advances.push({ runnerId, from, to: "out", reason: forceOut ? "force-out" : "tag-out" });
+      advances.push({ runnerId, from, to: "out", reason: forcedOrTag(bases, from, forced) });
       continue;
     }
 
@@ -186,7 +118,8 @@ export function resolveRunnerAdvancement(
         break;
       }
       case "walk":
-      case "hbp": {
+      case "hbp":
+      case "catcher-interference": {
         to = forced.includes(from) ? advanceBy(from, 1) : (from as unknown as Destination);
         certain = true;
         break;
@@ -197,10 +130,7 @@ export function resolveRunnerAdvancement(
         break;
       }
       case "dropped-third": {
-        to =
-          forced.includes(from) || !batterReaches
-            ? advanceBy(from, 1)
-            : (from as unknown as Destination);
+        to = forced.includes(from) || !batterReaches ? advanceBy(from, 1) : (from as unknown as Destination);
         certain = forced.includes(from);
         break;
       }
@@ -217,11 +147,10 @@ export function resolveRunnerAdvancement(
           to = advanceBy(from, 1);
           certain = false;
         } else if (isAir) {
-          // Caught ball: the runner may hold or tag up — scorer decides.
           to = from as unknown as Destination;
           certain = false;
         } else {
-          // Ground ball with the batter retired: runners take the next base.
+          // ground ball with the batter retired: runners take the next base
           to = batterReaches ? (from as unknown as Destination) : advanceBy(from, 1);
           certain = false;
         }
@@ -240,18 +169,8 @@ export function resolveRunnerAdvancement(
     }
   }
 
-  const secondary = input.kind === "hit" || input.kind === "batted" ? input.secondary : undefined;
-  if (secondary) {
-    const applied = applySecondary(bases, secondary, advances, batterTo, batterId, marks);
-    advances = applied.advances;
-    batterTo = applied.batterTo;
-  }
-
-  const settled = applyThirdOutRule(state, advances, batterTo);
-  advances = settled.advances;
-  batterTo = settled.batterTo;
-
-  const outsRecorded = advances.filter((a) => a.to === "out").length + (batterTo === "out" ? 1 : 0);
+  const outsRecorded =
+    advances.filter((a) => a.to === "out").length + (batterTo === "out" ? 1 : 0);
 
   // No decisions are needed once the half inning is over.
   const inningEnds = state.outs + outsRecorded >= 3;
@@ -259,20 +178,17 @@ export function resolveRunnerAdvancement(
     advances,
     batterTo,
     outsRecorded,
-    marks,
     uncertain: inningEnds ? [] : uncertain,
   };
 }
 
-const RUNNER_LABEL: Partial<Record<AdvanceReason, string>> = {
-  "stolen-base": "SB",
-  "caught-stealing": "CS",
-  "wild-pitch": "WP",
-  "passed-ball": "PB",
-  balk: "BK",
-  "defensive-indifference": "DI",
-  pickoff: "PO",
-};
+function forcedOrTag(
+  bases: Record<Base, string | null>,
+  from: Base,
+  forced: Base[],
+): AdvanceReason {
+  return forced.includes(from) ? "force-out" : "tag-out";
+}
 
 /** Resolve runner-only plays (steals, wild pitches, balks, pickoffs …). */
 export function resolveRunnerEvent(
@@ -282,23 +198,12 @@ export function resolveRunnerEvent(
 ): AdvancementResult {
   const bases = state.bases;
   const advances: Advance[] = [];
-  const marks: BasepathMark[] = [];
 
-  const push = (from: Base, to: Destination, reason: AdvanceReason, errorFielder?: number) => {
+  const push = (from: Base, to: Destination, reason: AdvanceReason) => {
     const runnerId = bases[from];
     if (!runnerId) return;
     const override = overrides[keyForBase(from)];
-    const dest = override ?? to;
-    advances.push({ runnerId, from, to: dest, reason, errorFielder });
-    const label = errorFielder ? `E${errorFielder}` : RUNNER_LABEL[reason];
-    if (label) {
-      marks.push({
-        runnerId,
-        base: dest === "out" ? Math.min(from + 1, 4) : dest,
-        label,
-        out: dest === "out",
-      });
-    }
+    advances.push({ runnerId, from, to: override ?? to, reason });
   };
 
   switch (input.kind) {
@@ -321,24 +226,22 @@ export function resolveRunnerEvent(
       for (const from of occupiedBases(bases)) push(from, advanceBy(from, 1), "balk");
       break;
     case "defensive-indifference":
-      // No safe/out decision: the defense conceded the base.
-      for (const from of input.runners) push(from, advanceBy(from, 1), "defensive-indifference");
+      push(input.from, advanceBy(input.from, 1), "defensive-indifference");
       break;
     case "pickoff":
-      if (input.out) push(input.from, "out", "pickoff");
-      else if (input.errorFielders?.length)
-        push(input.from, advanceBy(input.from, 1), "error", input.errorFielders[0]);
+      push(
+        input.from,
+        input.out ? "out" : input.errorFielders?.length ? advanceBy(input.from, 1) : (input.from as unknown as Destination),
+        input.out ? "pickoff" : "error",
+      );
       break;
   }
 
   const kept = advances.filter((a) => a.to !== (a.from as unknown as Destination));
-  const settled = applyThirdOutRule(state, kept, null);
-
   return {
-    advances: settled.advances,
+    advances: kept,
     batterTo: null,
-    outsRecorded: settled.advances.filter((a) => a.to === "out").length,
-    marks,
+    outsRecorded: kept.filter((a) => a.to === "out").length,
     uncertain: [],
   };
 }

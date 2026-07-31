@@ -5,8 +5,8 @@
  * The base a fielder covers on the final throw identifies the put-out:
  *   3 -> first (batter), 4/6 -> second, 5 -> third, 2 -> home.
  */
-import type { Base, BaseMap, BattedBallType, OutTarget } from "../types";
-import { forcedBases, occupiedBases } from "./situation";
+import type { Base, BattedBallType, OutTarget } from "../types";
+import { forcedBases, occupiedBases, type BaseMap } from "./situation";
 
 /** Base a fielder is covering when he receives the ball for a put-out. */
 const COVERS: Record<number, 1 | 2 | 3 | 4> = {

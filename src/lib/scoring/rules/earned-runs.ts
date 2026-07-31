@@ -77,7 +77,7 @@ function cleanBatterInput(input: BatterInput): BatterInput | null {
 /** Replay the event log with errors removed and count runs per half-inning. */
 export function cleanRunsPerHalfInning(setup: GameSetup, events: GameEvent[]): Map<string, number> {
   const clean = events.map(cleanEvent).filter((e): e is GameEvent => e !== null);
-  const cleanState = reduceEvents(setup, clean);
+  const cleanState = reduceEventsRaw(setup, clean);
   const map = new Map<string, number>();
   for (const play of cleanState.plays) {
     const key = `${play.battingTeam}-${play.inning}-${play.half}`;

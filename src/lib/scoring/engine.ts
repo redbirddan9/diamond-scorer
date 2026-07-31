@@ -281,6 +281,10 @@ function logPlay(
   state.outs += outs;
 
   const taintedRuns = scored.filter((id) => state.runnerState[id]?.tainted);
+  const runResponsibility: Record<string, string> = {};
+  for (const id of scored) {
+    runResponsibility[id] = state.runnerState[id]?.responsiblePitcherId ?? pitcherId;
+  }
 
   const logged: LoggedPlay = {
     id: ev.id,
@@ -297,6 +301,8 @@ function logPlay(
     outsBefore,
     runsScored: scored,
     taintedRuns,
+    earnedRunIds: [], // computed by computeEarnedRuns
+    runResponsibility,
     pitchCount,
   };
   state.plays.push(logged);

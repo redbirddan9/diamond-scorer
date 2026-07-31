@@ -30,7 +30,13 @@ export const RESULT_LABELS: Record<PlayClassification, string> = {
   PO: "Pickoff",
 };
 
-const AIR_LETTER: Record<string, string> = { fly: "F", line: "L", popup: "P", bunt: "B" };
+const AIR_LETTER: Record<string, string> = {
+  fly: "F",
+  line: "L",
+  popup: "P",
+  "pop-foul": "PF",
+  bunt: "B",
+};
 
 function isBatter(input: PlayInput): input is BatterInput {
   return !["steal", "wild-pitch", "passed-ball", "balk", "defensive-indifference", "pickoff"].includes(

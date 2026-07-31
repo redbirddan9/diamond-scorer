@@ -26,7 +26,7 @@ export interface AdvancementResult {
 
 type Overrides = Partial<Record<RunnerKey, Destination>>;
 
-const AIR: string[] = ["fly", "line", "popup"];
+const AIR: string[] = ["fly", "line", "popup", "pop-foul"];
 
 function retiredTargets(input: BatterInput): OutTarget[] {
   if (input.kind === "batted") return input.retired;

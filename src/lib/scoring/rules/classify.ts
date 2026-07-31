@@ -7,7 +7,7 @@ import type {
 } from "../types";
 import type { AdvancementResult } from "./advancement";
 
-const AIR = ["fly", "line", "popup"];
+const AIR = ["fly", "line", "popup", "pop-foul"];
 
 export function classifyBatterPlay(
   state: GameState,

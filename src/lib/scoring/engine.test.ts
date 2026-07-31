@@ -137,6 +137,29 @@ describe("rules engine", () => {
     expect(resolvePlay(state, flyOut).uncertain).toEqual(["2"]);
   });
 
+  it("asks for input when a runner could take an extra base on a hit", () => {
+    const state = createInitialState(setup);
+    state.bases[1] = "A9";
+    expect(resolvePlay(state, single).uncertain).toEqual(["1"]);
+
+    const held = resolvePlay(state, single, { "1": 3 });
+    expect(held.advances.find((a) => a.from === 1)?.to).toBe(3);
+    expect(held.batterTo).toBe(1);
+    expect(held.rbi).toBe(0);
+
+    const second = createInitialState(setup);
+    second.bases[2] = "A9";
+    const scored = resolvePlay(second, single, { "2": 4 });
+    expect(scored.runs).toBe(1);
+    expect(scored.rbi).toBe(1);
+  });
+
+  it("skips the menu when a hit sends every runner home", () => {
+    const state = createInitialState(setup);
+    state.bases[2] = "A9";
+    expect(resolvePlay(state, { kind: "hit", bases: 3 }).uncertain).toHaveLength(0);
+  });
+
   it("rejects impossible plays", () => {
     const state = createInitialState(setup);
     state.outs = 2;

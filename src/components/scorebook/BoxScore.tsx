@@ -108,7 +108,7 @@ export function BoxScore({ state, side }: { state: GameState; side: TeamSide }) 
           <table className="w-full border-collapse text-xs">
             <thead>
               <tr className="bg-secondary">
-                {["Pitcher", "IP", "H", "R", "ER", "HR", "SO", "BB", "HBP", "BF", "P", "ERA", "WHIP"].map((h) => (
+                {["Pitcher", "IP", "H", "R", "ER", "HR", "SO", "BB", "HBP", "BF", "P", "ERA", "WHIP", "IR", "IRS", "BRS"].map((h) => (
                   <th key={h} className="border border-border p-1.5 text-left font-semibold">{h}</th>
                 ))}
               </tr>
@@ -127,6 +127,9 @@ export function BoxScore({ state, side }: { state: GameState; side: TeamSide }) 
                   ))}
                   <td className="border border-border p-1.5 font-mono">{p.era.toFixed(2)}</td>
                   <td className="border border-border p-1.5 font-mono">{p.whip.toFixed(2)}</td>
+                  <td className="border border-border p-1.5 font-mono">{p.inheritedRunners || ""}</td>
+                  <td className="border border-border p-1.5 font-mono">{p.inheritedRunnersScored || ""}</td>
+                  <td className="border border-border p-1.5 font-mono">{p.bequeathedRunnersScored || ""}</td>
                 </tr>
               ))}
             </tbody>

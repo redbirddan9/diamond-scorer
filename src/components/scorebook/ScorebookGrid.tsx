@@ -93,8 +93,21 @@ function NameBox({ row }: { row: RowModel }) {
 
 function ScoreCell({ cell }: { cell?: CellModel }) {
   if (!cell) return <div className="h-full w-full" />;
-  const { play, base, scored, outNumber, pitcherChange } = cell;
+  const { play, base, scored, caughtStealingAt, outNumber, pitcherChange } = cell;
   const marks = notationParts(play);
+  // Diamond corners: home, 1B, 2B, 3B.
+  const corners: Record<number, [number, number]> = {
+    1: [50, 32],
+    2: [30, 12],
+    3: [10, 32],
+    4: [30, 52],
+  };
+  const csCorner = caughtStealingAt ? corners[caughtStealingAt] : undefined;
+  const csFrom = caughtStealingAt ? corners[caughtStealingAt - 1] ?? corners[4] : undefined;
+  const csMid =
+    csCorner && csFrom
+      ? [(csCorner[0] + csFrom[0]) / 2, (csCorner[1] + csFrom[1]) / 2]
+      : undefined;
 
   return (
     <div className="relative h-full w-full">
@@ -108,6 +121,37 @@ function ScoreCell({ cell }: { cell?: CellModel }) {
         {base >= 3 && <path d="M30 12 L10 32" className="stroke-ink" strokeWidth="2.5" fill="none" />}
         {base >= 4 && <path d="M10 32 L30 52" className="stroke-ink" strokeWidth="2.5" fill="none" />}
         {pitcherChange && <path d="M60 60 L60 44 L44 60 Z" className="fill-ink" />}
+        {csCorner && csFrom && (
+          <>
+            <path
+              d={`M${csFrom[0]} ${csFrom[1]} L${csCorner[0]} ${csCorner[1]}`}
+              className="stroke-ink"
+              strokeWidth="1.5"
+              fill="none"
+            />
+            <circle
+              cx={csCorner[0]}
+              cy={csCorner[1]}
+              r="5"
+              className="fill-none stroke-ink"
+              strokeWidth="1.5"
+            />
+            {csMid && (
+              <text
+                x={csMid[0]}
+                y={csMid[1]}
+                dx="-1"
+                dy="-2"
+                textAnchor="middle"
+                className="fill-ink font-mono"
+                fontSize="9"
+                fontWeight="700"
+              >
+                CS
+              </text>
+            )}
+          </>
+        )}
       </svg>
       <div className="relative flex h-full flex-col items-center justify-center leading-none">
         {marks.above && (

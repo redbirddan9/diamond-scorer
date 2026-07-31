@@ -257,7 +257,7 @@ export function resolveRunnerEvent(
       for (const from of occupiedBases(bases)) push(from, advanceBy(from, 1), "balk");
       break;
     case "defensive-indifference":
-      for (const from of input.froms) {
+      for (const from of input.froms ?? occupiedBases(bases)) {
         push(from, advanceBy(from, 1), "defensive-indifference");
       }
       break;

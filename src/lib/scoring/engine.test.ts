@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createInitialState, currentBatterId, reduceEvents } from "./engine";
 import { buildScorecard } from "./scorecard";
 import { inferRetired, resolvePlay, validate } from "./rules";
+import { pitchingStats } from "./stats";
 import type { BatterInput, GameEvent, GameSetup, RunnerInput } from "./types";
 
 function team(prefix: string): GameSetup["home"] {

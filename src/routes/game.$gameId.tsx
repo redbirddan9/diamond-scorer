@@ -285,6 +285,7 @@ function GameScreen() {
 
           {mode === "play" && !pending && !strikeThree && assignTarget ? (
             <PositionAssign
+              key={assignTarget.playerId}
               state={state}
               pending={assignTarget}
               onSkip={() => setSkipAssign((s) => [...s, assignTarget.playerId])}

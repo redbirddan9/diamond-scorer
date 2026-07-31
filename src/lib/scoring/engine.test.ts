@@ -226,7 +226,7 @@ describe("earned run reconstruction", () => {
   it("marks a run unearned when the runner reached on an error", () => {
     const events: GameEvent[] = [
       { id: "e1", ts: "", type: "play", batterId: "A1", input: { kind: "batted", batted: "ground", fielders: [5], retired: [], errorFielders: [5] } },
-      { id: "e2", ts: "", type: "play", batterId: "A2", input: single },
+      { id: "e2", ts: "", type: "play", batterId: "A2", input: { kind: "hit", bases: 3 } },
     ];
     const state = reduceEvents(setup, events);
     const last = state.plays[state.plays.length - 1];
@@ -238,7 +238,7 @@ describe("earned run reconstruction", () => {
   it("counts earned runs when the inning would have scored without errors", () => {
     const events: GameEvent[] = [
       { id: "e1", ts: "", type: "play", batterId: "A1", input: single },
-      { id: "e2", ts: "", type: "play", batterId: "A2", input: { kind: "hit", bases: 2 } },
+      { id: "e2", ts: "", type: "play", batterId: "A2", input: { kind: "hit", bases: 3 } },
     ];
     const state = reduceEvents(setup, events);
     const last = state.plays[state.plays.length - 1];
@@ -253,7 +253,7 @@ describe("inherited and bequeathed runners", () => {
     const events: GameEvent[] = [
       { id: "e1", ts: "", type: "play", batterId: "A1", input: single },
       { id: "sub1", ts: "", type: "sub", team: "home", outPlayerId: "H1", inPlayerId: "H2", position: "P", kind: "P" },
-      { id: "e2", ts: "", type: "play", batterId: "A2", input: { kind: "hit", bases: 2 } },
+      { id: "e2", ts: "", type: "play", batterId: "A2", input: { kind: "hit", bases: 3 } },
     ];
     const state = reduceEvents(setup, events);
     const homePitching = pitchingStats(state, "home");

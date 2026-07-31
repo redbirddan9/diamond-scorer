@@ -302,8 +302,14 @@ export interface SubRecord {
   position?: string;
   battingTeam: TeamSide;
   battingSlot: number;
-/** Number of plays already logged when the substitution happened. */
+  /** Number of plays already logged when the substitution happened. */
   playIndex?: number;
+  /** Runner ids on base at the moment of the substitution (for pitcher changes). */
+  inheritedRunners?: string[];
+  /** Pitcher being relieved when this substitution is a pitching change. */
+  previousPitcherId?: string;
+  /** New pitcher when this substitution introduces a new pitcher. */
+  newPitcherId?: string;
 }
 
 /** Per-runner bookkeeping for earned/unearned run reconstruction and inherited runners. */

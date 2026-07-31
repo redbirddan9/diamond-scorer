@@ -385,6 +385,11 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
         typeof ev.slot === "number" && ev.slot >= 0 && ev.slot < order.length
           ? ev.slot
           : order.indexOf(ev.outPlayerId);
+      const isPitcherChange = ev.position === "P" || state.pitcher[ev.team] === ev.outPlayerId;
+      const inheritedRunners = isPitcherChange
+        ? ([1, 2, 3] as Base[]).map((b) => state.bases[b]).filter((id): id is string => Boolean(id))
+        : undefined;
+      const previousPitcherId = isPitcherChange ? state.pitcher[ev.team] : undefined;
       state.subLog.push({
         team: ev.team,
         kind: ev.kind ?? "DEF",
@@ -397,6 +402,9 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
         battingTeam,
         battingSlot: state.slot[battingTeam] % Math.max(state.lineup[battingTeam].length, 1),
         playIndex: state.plays.length,
+        inheritedRunners,
+        previousPitcherId,
+        newPitcherId: isPitcherChange ? ev.inPlayerId : undefined,
       });
       if (typeof ev.slot === "number" && ev.slot >= 0 && ev.slot < order.length) {
         order[ev.slot] = ev.inPlayerId;
@@ -405,11 +413,15 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
         if (idx >= 0) order[idx] = ev.inPlayerId;
       }
       if (ev.position) state.positions[ev.team][ev.inPlayerId] = ev.position;
-      if (ev.position === "P" || state.pitcher[ev.team] === ev.outPlayerId) {
-        if (ev.position === "P") state.pitcher[ev.team] = ev.inPlayerId;
-      }
+      if (isPitcherChange) state.pitcher[ev.team] = ev.inPlayerId;
       ([1, 2, 3] as Base[]).forEach((b) => {
-        if (state.bases[b] === ev.outPlayerId) state.bases[b] = ev.inPlayerId;
+        if (state.bases[b] === ev.outPlayerId) {
+          state.bases[b] = ev.inPlayerId;
+          if (state.runnerState[ev.outPlayerId]) {
+            state.runnerState[ev.inPlayerId] = { ...state.runnerState[ev.outPlayerId], runnerId: ev.inPlayerId };
+            delete state.runnerState[ev.outPlayerId];
+          }
+        }
       });
       return state;
     }

@@ -63,7 +63,7 @@ export interface GameSetup {
  * Observations — what the scorer saw
  * ------------------------------------------------------------------ */
 
-export type BattedBallType = "ground" | "fly" | "line" | "popup" | "bunt";
+export type BattedBallType = "ground" | "fly" | "line" | "popup" | "pop-foul" | "bunt";
 /** Who the defense retired on the play. */
 export type OutTarget = "batter" | Base;
 

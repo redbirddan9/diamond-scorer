@@ -27,6 +27,15 @@ export function GameSummary({ state, onSaveInfo }: Props) {
     umpThird: setup.umpires?.third ?? "",
     notes: setup.notes ?? "",
   });
+  const [decisions, setDecisions] = useState({
+    win: setup.decisions?.win ?? "",
+    loss: setup.decisions?.loss ?? "",
+    save: setup.decisions?.save ?? "",
+  });
+  const pitchers = Object.keys(state.pitchesThrown).length
+    ? Object.keys(state.pitchesThrown)
+    : [setup.away.pitcherId, setup.home.pitcherId];
+  const nameOf = (id: string) => state.playerNames[id] ?? id;
   const [saved, setSaved] = useState(false);
 
   const field = (key: keyof typeof info, label: string, type = "text") => (
@@ -77,6 +86,34 @@ export function GameSummary({ state, onSaveInfo }: Props) {
           </ul>
         </div>
       )}
+
+      <div className="rounded-md border border-border p-3 print:hidden">
+        <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide">Pitcher decisions</h3>
+        <div className="grid grid-cols-3 gap-3">
+          {(["win", "loss", "save"] as const).map((slot) => (
+            <div key={slot} className="space-y-1">
+              <Label className="text-[11px] uppercase text-muted-foreground">{slot}</Label>
+              <div className="flex flex-wrap gap-1">
+                {pitchers.map((id) => (
+                  <Button
+                    key={id}
+                    size="sm"
+                    variant={decisions[slot] === id ? "default" : "outline"}
+                    className="h-9 text-xs"
+                    onClick={() => {
+                      const next = { ...decisions, [slot]: decisions[slot] === id ? "" : id };
+                      setDecisions(next);
+                      onSaveInfo({ decisions: next });
+                    }}
+                  >
+                    {nameOf(id)}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       <div className="rounded-md border border-border p-3 print:hidden">
         <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide">Game information</h3>

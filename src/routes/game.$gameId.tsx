@@ -65,10 +65,20 @@ function GameScreen() {
   const [strikeThree, setStrikeThree] = useState(false);
   const [mode, setMode] = useState<Mode>("play");
   const [menuDepth, setMenuDepth] = useState(0);
+  const [tab, setTab] = useState<string>("away");
 
   const state = session.state;
   const over = Boolean(state?.over);
   const trackPitches = Boolean(state?.setup.trackPitches);
+  const halfKey = state ? `${state.inning}-${state.half}` : null;
+  const battingTeam = state ? (state.half === "top" ? "away" : "home") : null;
+
+  // Half innings switch themselves: follow the batting team, or the box once final.
+  useEffect(() => {
+    if (over) setTab("box");
+    else if (battingTeam) setTab(battingTeam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [halfKey, over]);
 
   // Games end themselves once the rules say so.
   useEffect(() => {
@@ -356,7 +366,7 @@ function GameScreen() {
         </section>
       )}
 
-      <Tabs defaultValue={over ? "box" : offense} className="mt-2">
+      <Tabs value={tab} onValueChange={setTab} className="mt-2">
         <TabsList className="grid w-full grid-cols-4 print:hidden">
           <TabsTrigger value="away">{state.setup.away.name}</TabsTrigger>
           <TabsTrigger value="home">{state.setup.home.name}</TabsTrigger>

@@ -67,8 +67,27 @@ export type BattedBallType = "ground" | "fly" | "line" | "popup" | "bunt";
 /** Who the defense retired on the play. */
 export type OutTarget = "batter" | Base;
 
+/**
+ * A secondary defensive error committed AFTER the primary result is already
+ * established (e.g. a clean double, then the right fielder boots the ball and
+ * the batter takes third). It never changes the primary classification.
+ */
+export interface SecondaryError {
+  /** Position number that committed the error (1-9). */
+  fielder: number;
+  /** Whose advancement the error caused. */
+  runner: RunnerKey;
+  /** Extra bases gained because of the error. Defaults to 1. */
+  bases?: number;
+}
+
 export type BatterInput =
-  | { kind: "hit"; bases: 1 | 2 | 3 | 4; groundRule?: boolean }
+  | {
+      kind: "hit";
+      bases: 1 | 2 | 3 | 4;
+      groundRule?: boolean;
+      secondary?: SecondaryError;
+    }
   | { kind: "strikeout"; swinging: boolean }
   | {
       kind: "dropped-third";
@@ -80,7 +99,6 @@ export type BatterInput =
     }
   | { kind: "walk"; intentional?: boolean }
   | { kind: "hbp" }
-  | { kind: "catcher-interference" }
   | {
       kind: "batted";
       batted: BattedBallType;
@@ -89,6 +107,7 @@ export type BatterInput =
       /** Everyone the defense retired on this continuous play. */
       retired: OutTarget[];
       errorFielders?: number[];
+      secondary?: SecondaryError;
     }
   | { kind: "sac-bunt"; fielders: number[]; retired?: OutTarget[] };
 
@@ -97,7 +116,7 @@ export type RunnerInput =
   | { kind: "wild-pitch" }
   | { kind: "passed-ball" }
   | { kind: "balk" }
-  | { kind: "defensive-indifference"; from: Base }
+  | { kind: "defensive-indifference"; runners: Base[] }
   | {
       kind: "pickoff";
       from: Base;

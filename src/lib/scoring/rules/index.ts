@@ -27,12 +27,17 @@ export { validatePlay } from "./validate";
 
 type Overrides = Partial<Record<RunnerKey, Destination>>;
 
-const HIT_KINDS: PlayInput["kind"][] = ["hit"];
+const RUNNER_KINDS: PlayInput["kind"][] = [
+  "steal",
+  "wild-pitch",
+  "passed-ball",
+  "balk",
+  "defensive-indifference",
+  "pickoff",
+];
 
 export function isRunnerInput(input: PlayInput): input is RunnerInput {
-  return ["steal", "wild-pitch", "passed-ball", "balk", "defensive-indifference", "pickoff"].includes(
-    input.kind,
-  );
+  return RUNNER_KINDS.includes(input.kind);
 }
 
 /** Resolve any play into its full official outcome. */
@@ -40,38 +45,39 @@ export function resolvePlay(
   state: GameState,
   input: PlayInput,
   overrides: Overrides = {},
+  batterId = "batter",
 ): PlayResolution {
   return isRunnerInput(input)
     ? resolveRunner(state, input, overrides)
-    : resolveBatter(state, input as BatterInput, overrides);
+    : resolveBatter(state, input as BatterInput, overrides, batterId);
 }
 
 function resolveBatter(
   state: GameState,
   input: BatterInput,
   overrides: Overrides,
+  batterId: string,
 ): PlayResolution {
-  const adv = resolveRunnerAdvancement(state, input, overrides);
+  const adv = resolveRunnerAdvancement(state, input, overrides, batterId);
   const classification = classifyBatterPlay(state, input, adv);
   const rbi = calculateRBIs(input, classification, adv);
   const runs = adv.advances.filter((a) => a.to === 4).length + (adv.batterTo === 4 ? 1 : 0);
 
-  const errorFielders =
+  const primaryErrors =
     (input.kind === "batted" || input.kind === "dropped-third" ? input.errorFielders : undefined) ?? [];
+  const secondary = input.kind === "hit" || input.kind === "batted" ? input.secondary : undefined;
+  const errorFielders = secondary ? [...primaryErrors, secondary.fielder] : primaryErrors;
+
   const fielders =
     input.kind === "batted" || input.kind === "sac-bunt" || input.kind === "dropped-third"
       ? (input.fielders ?? [])
       : [];
 
-  const isHit = HIT_KINDS.includes(input.kind);
+  const isHit = input.kind === "hit";
   const isWalk = classification === "BB" || classification === "IBB";
   const isStrikeout = classification === "K";
   const noAtBat =
-    isWalk ||
-    classification === "HBP" ||
-    classification === "CI" ||
-    classification === "SF" ||
-    classification === "SH";
+    isWalk || classification === "HBP" || classification === "SF" || classification === "SH";
 
   return {
     classification,
@@ -88,6 +94,7 @@ function resolveBatter(
     isPlateAppearance: true,
     isStrikeout,
     isWalk,
+    marks: adv.marks,
     uncertain: adv.uncertain,
   };
 }
@@ -115,6 +122,7 @@ function resolveRunner(
     isPlateAppearance: false,
     isStrikeout: false,
     isWalk: false,
+    marks: adv.marks,
     uncertain: [],
   };
 }

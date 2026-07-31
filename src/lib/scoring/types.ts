@@ -55,6 +55,8 @@ export interface GameSetup {
   trackPitches?: boolean;
   umpires: Umpires;
   innings: number;
+  /** Pitcher decisions assigned by the scorer when the game ends. */
+  decisions?: { win?: string; loss?: string; save?: string };
   away: TeamSetup;
   home: TeamSetup;
 }
@@ -140,7 +142,6 @@ export type PlayClassification =
   | "BB"
   | "IBB"
   | "HBP"
-  | "CI"
   | "E"
   | "FC"
   | "SF"

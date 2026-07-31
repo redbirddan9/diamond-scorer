@@ -5,13 +5,14 @@ import { PositionGrid } from "./PositionGrid";
 import { battingSide, fieldingSide } from "@/lib/scoring/engine";
 import type { Base, GameState, SubEvent, TeamSide } from "@/lib/scoring/types";
 
-type Kind = "PH" | "PR" | "P" | "DEF";
+type Kind = "PH" | "PR" | "P" | "DEF" | "POS";
 
 const KINDS: { value: Kind; label: string; hint: string }[] = [
   { value: "PH", label: "Pinch Hitter", hint: "Bats for the current slot" },
   { value: "PR", label: "Pinch Runner", hint: "Replaces a runner on base" },
   { value: "P", label: "Pitching Change", hint: "New pitcher enters" },
   { value: "DEF", label: "Defensive Sub", hint: "Fielding replacement" },
+  { value: "POS", label: "Assign Position", hint: "Give a PH/PR a position" },
 ];
 
 interface Props {
@@ -30,6 +31,9 @@ export function SubstitutionPanel({ state, onSubmit, onCancel }: Props) {
   const offense = battingSide(state);
   const defense = fieldingSide(state);
   const team: TeamSide = kind === "PH" || kind === "PR" ? offense : defense;
+  const pending = state.lineup[team].filter((id) =>
+    ["PH", "PR"].includes(state.positions[team][id] ?? ""),
+  );
   const order = state.lineup[team];
   const nameOf = (id: string) => state.playerNames[id] ?? id;
   const occupied = ([1, 2, 3] as Base[]).filter((b) => state.bases[b]);
@@ -44,14 +48,15 @@ export function SubstitutionPanel({ state, onSubmit, onCancel }: Props) {
     if (kind === "PH") {
       outSlot = slot ?? state.slot[team] % order.length;
       outPlayerId = order[outSlot];
-      pos = pos || state.positions[team][outPlayerId] || "";
+      // A pinch hitter has no defensive position yet.
+      pos = "PH";
     } else if (kind === "PR") {
       const b = base ?? occupied[0];
       if (!b) return;
       outPlayerId = state.bases[b]!;
       const idx = order.indexOf(outPlayerId);
       if (idx >= 0) outSlot = idx;
-      pos = pos || state.positions[team][outPlayerId] || "";
+      pos = "PR";
     } else if (kind === "P") {
       outPlayerId = state.pitcher[team];
       pos = "P";
@@ -157,7 +162,7 @@ export function SubstitutionPanel({ state, onSubmit, onCancel }: Props) {
             </div>
           )}
 
-          {(kind === "DEF" || kind === "PH") && (
+          {kind === "DEF" && (
             <div>
               <p className="mb-1 text-xs uppercase text-muted-foreground">Position</p>
               <PositionGrid value={position} onChange={setPosition} compact />

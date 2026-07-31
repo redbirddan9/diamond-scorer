@@ -483,7 +483,7 @@ function GameScreen() {
 
 function Scoreboard({ state, trackPitches }: { state: GameState; trackPitches: boolean }) {
   const cell = (label: string, value: string | number) => (
-    <div className="flex flex-col items-center">
+    <div className="flex items-center gap-1">
       <span className="text-[9px] uppercase tracking-widest text-muted-foreground">{label}</span>
       <span className="font-mono text-lg font-bold leading-tight">{value}</span>
     </div>

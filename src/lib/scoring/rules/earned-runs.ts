@@ -23,33 +23,6 @@ import type {
 } from "../types";
 import { createInitialState, reduceEvents } from "../engine";
 
-/** Returns true if the runner was tainted by the way he reached base. */
-export function reachedOnTaintedPlay(input: BatterInput): boolean {
-  switch (input.kind) {
-    case "batted":
-      return (
-        Boolean(input.errorFielders?.length) &&
-        !input.retired.includes("batter") &&
-        input.retired.length === 0
-      );
-    case "dropped-third":
-      return input.batterSafe && (input.cause === "passed-ball" || Boolean(input.errorFielders?.length));
-    case "catcher-interference":
-      return true;
-    case "hit":
-    case "walk":
-    case "hbp":
-    case "sac-bunt":
-    case "strikeout":
-      return false;
-  }
-}
-
-/** Returns true if an advance reason is an error, passed ball, or catcher's interference. */
-export function taintedAdvance(reason: string): boolean {
-  return reason === "error" || reason === "passed-ball" || reason === "catcher-interference";
-}
-
 /** Transform a single event into its "clean" version for reconstruction. */
 function cleanEvent(ev: GameEvent): GameEvent | null {
   switch (ev.type) {
@@ -114,8 +87,8 @@ export function cleanRunsPerHalfInning(setup: GameSetup, events: GameEvent[]): M
 }
 
 /** Compute earned runs per play and return an updated state. */
-export function computeEarnedRuns(state: GameState): GameState {
-  const clean = cleanRunsPerHalfInning(state.setup, state.plays);
+export function computeEarnedRuns(setup: GameSetup, events: GameEvent[], state: GameState): GameState {
+  const clean = cleanRunsPerHalfInning(setup, events);
 
   // Tally actual runs per half-inning and tainted/unearned runs.
   const actualRunsByKey = new Map<string, { total: number; tainted: number }>();
@@ -176,3 +149,4 @@ export function removeRunner(
 ) {
   delete map[runnerId];
 }
+

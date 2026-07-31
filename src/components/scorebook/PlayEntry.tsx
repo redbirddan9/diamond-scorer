@@ -38,10 +38,10 @@ type Flow =
   | { kind: "dropped-third" };
 
 const BATTED: { key: BattedBallType; hot: string; symbol: string; label: string }[] = [
-  { key: "ground", hot: "g", symbol: "GB", label: "Ground Ball" },
-  { key: "fly", hot: "f", symbol: "F", label: "Fly Ball" },
-  { key: "line", hot: "l", symbol: "L", label: "Line Drive" },
-  { key: "popup", hot: "p", symbol: "P", label: "Pop Up" },
+  { key: "ground", hot: "g", symbol: "GO", label: "Ground-out" },
+  { key: "popup", hot: "p", symbol: "P", label: "Pop-out" },
+  { key: "line", hot: "l", symbol: "L", label: "Line-out" },
+  { key: "pop-foul", hot: "f", symbol: "PF", label: "Pop Foul" },
 ];
 
 export const MENU: Node[] = [

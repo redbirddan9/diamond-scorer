@@ -1,30 +1,11 @@
-## Goal
+Move the basepath reason symbols (SB, CS, WP, PB, BK, DI, E#) and secondary-error labels away from the diamond center in `ScorebookGrid.tsx` so they are less crowded.
 
-The Advancement/RBI menu should appear exactly when a runner's destination is a judgment call — most importantly the case you raised: single with a runner on first, and the fast runner takes third. Today hits are treated as always "certain" (base-for-base), so that menu never appears and the runner is forced to second.
-
-## Changes (advancement engine only)
-
-All edits are in `src/lib/scoring/rules/advancement.ts`, in the `uncertain` determination. Destinations, RBI, classification, notation, and the scorecard stay exactly as they are.
-
-1. **Hits: prompt when extra bases are physically possible.**
-   For each surviving runner on a single/double/triple, the default stays base-for-base, but the runner is flagged uncertain when they could take at least one extra base and still be on the field (i.e. default destination is not home). Examples:
-   - Single, runner on 1st → prompt (2nd, 3rd, or home available).
-   - Single, runner on 2nd → prompt (3rd or home).
-   - Double, runner on 1st → prompt (3rd or home).
-   - Triple, runner on 1st/2nd/3rd → default is home, no prompt.
-   - Home run → all runners score, no prompt.
-   - Bases empty → no prompt (batter's own extra bases are recorded by the hit itself).
-
-2. **Keep everything already automatic silent.** No prompt for walks/HBP/CI, strikeouts, forced runners, routine ground outs, sacrifice bunts, dropped third strikes, any play that ends the half inning, or plays where all runner outcomes are determined (force double play / triple play).
-
-3. **Keep existing prompts that are genuine judgment calls:** tag-up on a caught fly/line/pop with the batter out, extra bases on an error (primary or secondary error on a hit).
-
-4. **Runner-only plays** (SB/CS, WP, PB, balk, DI, pickoff) remain unprompted — the scorer already picked the outcome.
-
-## Verification
-
-Add cases to `src/lib/scoring/engine.test.ts`:
-- single with runner on 1st → `uncertain` contains that runner; overriding them to 3rd yields runner on 3rd, batter on 1st, 0 RBI.
-- single with runner on 2nd overridden to home → 1 run, 1 RBI (RBI still automatic).
-- home run with runners, walk with runner on 1st, routine 6-4-3 double play, and third-out plays → `uncertain` stays empty.
-Then run the test suite and typecheck.
+1. Locate the `ScoreCell` SVG text rendering inside `src/components/scorebook/ScorebookGrid.tsx` (lines 140–170).
+2. Replace the current small `dx/dy` offsets (±3 horizontal, -2/4 vertical) with an outward offset from the diamond center at `(30, 32)`.
+   - Compute the vector from the center to the midpoint of the basepath.
+   - Normalize that vector and scale it by a larger distance (e.g., 8–10 px in the `60×60` SVG coordinate space) so the label sits clearly outside the diamond.
+3. Apply the same outward-offset logic to both:
+   - `reasonMarks` (SB, CS, WP, PB, BK, DI)
+   - `errorAdvance` label (E# along a basepath)
+4. Leave the diamond, basepath lines, out circles, and scoring notation unchanged.
+5. Verify visually in the preview that the labels are now backed off from the diamond edges.

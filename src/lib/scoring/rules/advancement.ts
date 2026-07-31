@@ -239,7 +239,7 @@ export function resolveRunnerEvent(
 
   switch (input.kind) {
     case "steal":
-      for (const attempt of input.attempts) {
+      for (const attempt of input.attempts ?? []) {
         push(
           attempt.from,
           attempt.safe ? advanceBy(attempt.from, 1) : "out",

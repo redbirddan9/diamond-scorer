@@ -93,7 +93,7 @@ function NameBox({ row }: { row: RowModel }) {
 
 function ScoreCell({ cell }: { cell?: CellModel }) {
   if (!cell) return <div className="h-full w-full" />;
-  const { play, base, scored, caughtStealingAt, pickedOffAt, errorAdvance, pathLabels, outNumber, pitcherChange } =
+  const { play, base, scored, outOnBases, errorAdvance, pathLabels, outNumber, pitcherChange } =
     cell;
   const marks = notationParts(play);
   // Diamond corners: home, 1B, 2B, 3B.
@@ -103,12 +103,13 @@ function ScoreCell({ cell }: { cell?: CellModel }) {
     3: [10, 32],
     4: [30, 52],
   };
-  const csCorner = caughtStealingAt ? corners[caughtStealingAt] : undefined;
-  const poCorner = pickedOffAt ? corners[pickedOffAt] : undefined;
-  const csFrom = caughtStealingAt ? corners[caughtStealingAt - 1] ?? corners[4] : undefined;
-  const csMid =
-    csCorner && csFrom
-      ? [(csCorner[0] + csFrom[0]) / 2, (csCorner[1] + csFrom[1]) / 2]
+  // Any out on the basepaths: circle the corner where the runner was retired.
+  const outCorner = outOnBases ? corners[outOnBases.base] : undefined;
+  const outFrom =
+    outOnBases && outOnBases.base > 1 ? corners[outOnBases.base - 1] : undefined;
+  const outMid =
+    outCorner && outFrom
+      ? [(outCorner[0] + outFrom[0]) / 2, (outCorner[1] + outFrom[1]) / 2]
       : undefined;
   // Secondary error on a hit: label the basepath the batter took on the error.
   const eaFrom = errorAdvance ? corners[errorAdvance.from] : undefined;

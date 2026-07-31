@@ -84,7 +84,8 @@ function resolveBatter(
     runs,
     fielders,
     errorFielders,
-    earnedRuns: errorFielders.length === 0,
+    // A secondary error on a legitimate hit does not unearn the hit's runs.
+    earnedRuns: errorFielders.length === 0 || input.kind === "hit",
     isHit,
     isAtBat: !noAtBat,
     isPlateAppearance: true,

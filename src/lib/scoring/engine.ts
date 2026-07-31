@@ -57,6 +57,7 @@ export function createInitialState(setup: GameSetup): GameState {
     subLog: [],
     ghostRunner: null,
     winner: null,
+    runnerState: {},
   };
 }
 

@@ -359,6 +359,8 @@ export interface GameState {
   subLog: SubRecord[];
   ghostRunner: string | null;
   winner: TeamSide | null;
+  /** Per-runner bookkeeping for earned/unearned and inherited runner tracking. */
+  runnerState: Record<string, RunnerState>;
 }
 
 export type GameStatus = "in-progress" | "final" | "archived";

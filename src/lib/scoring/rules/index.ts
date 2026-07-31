@@ -57,7 +57,9 @@ function resolveBatter(
   const runs = adv.advances.filter((a) => a.to === 4).length + (adv.batterTo === 4 ? 1 : 0);
 
   const errorFielders =
-    (input.kind === "batted" || input.kind === "dropped-third" ? input.errorFielders : undefined) ?? [];
+    (input.kind === "batted" || input.kind === "dropped-third" || input.kind === "hit"
+      ? input.errorFielders
+      : undefined) ?? [];
   const fielders =
     input.kind === "batted" || input.kind === "sac-bunt" || input.kind === "dropped-third"
       ? (input.fielders ?? [])

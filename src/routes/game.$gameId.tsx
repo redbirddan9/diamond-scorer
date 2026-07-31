@@ -10,6 +10,7 @@ import { ScorebookGrid } from "@/components/scorebook/ScorebookGrid";
 import { BoxScore, LineScore } from "@/components/scorebook/BoxScore";
 import { AbsPanel } from "@/components/scorebook/AbsPanel";
 import { SubstitutionPanel } from "@/components/scorebook/SubstitutionPanel";
+import { PositionAssign, pendingFielders } from "@/components/scorebook/PositionAssign";
 import { GameSummary } from "@/components/scorebook/GameSummary";
 import { ThemeToggle } from "@/components/scorebook/ThemeToggle";
 import { useGame, newId } from "@/lib/useGame";
@@ -66,6 +67,7 @@ function GameScreen() {
   const [mode, setMode] = useState<Mode>("play");
   const [menuDepth, setMenuDepth] = useState(0);
   const [tab, setTab] = useState<string>("away");
+  const [skipAssign, setSkipAssign] = useState<string[]>([]);
 
   const state = session.state;
   const over = Boolean(state?.over);
@@ -178,6 +180,9 @@ function GameScreen() {
   const offense = battingSide(state);
   const nameOf = (id: string) => state.playerNames[id] ?? id;
   const activeSlot = state.slot[offense] % Math.max(state.lineup[offense].length, 1);
+  // Pinch hitters/runners pick a fielding position once their half inning ends.
+  const assignTarget =
+    pendingFielders(state, defense).find((p) => !skipAssign.includes(p.playerId)) ?? null;
 
   const finalize = () => {
     if (!pending) return;
@@ -277,6 +282,25 @@ function GameScreen() {
               </p>
             </div>
           </div>
+
+          {mode === "play" && !pending && !strikeThree && assignTarget ? (
+            <PositionAssign
+              key={assignTarget.playerId}
+              state={state}
+              pending={assignTarget}
+              onSkip={() => setSkipAssign((s) => [...s, assignTarget.playerId])}
+              onAssign={(position) => {
+                session.commit({
+                  id: newId(),
+                  type: "position",
+                  ts: new Date().toISOString(),
+                  team: assignTarget.team,
+                  playerId: assignTarget.playerId,
+                  position,
+                });
+              }}
+            />
+          ) : null}
 
           {mode === "abs" ? (
             <div className="rounded-md border border-border bg-card p-3">

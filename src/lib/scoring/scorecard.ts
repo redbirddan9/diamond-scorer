@@ -68,6 +68,19 @@ export function buildScorecard(state: GameState, side: TeamSide): RowModel[] {
     state.setup[side].players.find((p) => p.id === id)?.position ??
     "";
 
+  // Pitching change: mark the LAST batter box the outgoing pitcher faced.
+  const pitchChangePlayIds = new Set<string>();
+  state.subLog.forEach((s) => {
+    if (s.kind !== "P") return;
+    const upto = typeof s.playIndex === "number" ? s.playIndex : state.plays.length;
+    for (let i = upto - 1; i >= 0; i -= 1) {
+      const p = state.plays[i];
+      if (p.type !== "play") continue;
+      if (p.battingTeam === side) pitchChangePlayIds.add(p.id);
+      break;
+    }
+  });
+
   return Array.from({ length: size }, (_, slot) => {
     const cells: Record<number, CellModel> = {};
     let ab = 0;
@@ -78,14 +91,7 @@ export function buildScorecard(state: GameState, side: TeamSide): RowModel[] {
     state.plays.forEach((play, index) => {
       if (play.type !== "play" || play.battingTeam !== side || play.slot !== slot) return;
       const progress = batterProgress(state.plays, index);
-      const pitcherChange = state.subLog.some(
-        (s) =>
-          s.kind === "P" &&
-          s.battingTeam === side &&
-          s.battingSlot === slot &&
-          s.inning === play.inning &&
-          s.half === play.half,
-      );
+      const pitcherChange = pitchChangePlayIds.has(play.id);
       cells[play.inning] = {
         play,
         base: progress.base,

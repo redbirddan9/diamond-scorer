@@ -338,6 +338,7 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
         position: ev.position,
         battingTeam,
         battingSlot: state.slot[battingTeam] % Math.max(state.lineup[battingTeam].length, 1),
+        playIndex: state.plays.length,
       });
       if (typeof ev.slot === "number" && ev.slot >= 0 && ev.slot < order.length) {
         order[ev.slot] = ev.inPlayerId;
@@ -356,6 +357,12 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
     }
     case "play":
       return ev.input ? logPlay(prev, ev) : prev;
+    case "position": {
+      const state = clone(prev);
+      state.positions[ev.team][ev.playerId] = ev.position;
+      if (ev.position === "P") state.pitcher[ev.team] = ev.playerId;
+      return state;
+    }
     default:
       return prev;
   }

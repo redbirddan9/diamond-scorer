@@ -44,14 +44,15 @@ export function SubstitutionPanel({ state, onSubmit, onCancel }: Props) {
     if (kind === "PH") {
       outSlot = slot ?? state.slot[team] % order.length;
       outPlayerId = order[outSlot];
-      pos = pos || state.positions[team][outPlayerId] || "";
+      // Defensive position is assigned later (after the half inning ends).
+      pos = "PH";
     } else if (kind === "PR") {
       const b = base ?? occupied[0];
       if (!b) return;
       outPlayerId = state.bases[b]!;
       const idx = order.indexOf(outPlayerId);
       if (idx >= 0) outSlot = idx;
-      pos = pos || state.positions[team][outPlayerId] || "";
+      pos = "PR";
     } else if (kind === "P") {
       outPlayerId = state.pitcher[team];
       pos = "P";
@@ -157,11 +158,17 @@ export function SubstitutionPanel({ state, onSubmit, onCancel }: Props) {
             </div>
           )}
 
-          {(kind === "DEF" || kind === "PH") && (
+          {kind === "DEF" && (
             <div>
               <p className="mb-1 text-xs uppercase text-muted-foreground">Position</p>
               <PositionGrid value={position} onChange={setPosition} compact />
             </div>
+          )}
+
+          {(kind === "PH" || kind === "PR") && (
+            <p className="text-xs text-muted-foreground">
+              Shown as {kind}. Pick a fielding position after the half inning ends.
+            </p>
           )}
 
           {kind === "P" && (

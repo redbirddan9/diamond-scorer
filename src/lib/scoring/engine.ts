@@ -298,7 +298,7 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
       return state;
     }
     case "runner":
-      return logPlay(prev, ev);
+      return ev.input ? logPlay(prev, ev) : prev;
     case "abs": {
       const state = clone(prev);
       const team = absTeam(ev.caller, state);
@@ -355,7 +355,7 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
       return state;
     }
     case "play":
-      return logPlay(prev, ev);
+      return ev.input ? logPlay(prev, ev) : prev;
     default:
       return prev;
   }

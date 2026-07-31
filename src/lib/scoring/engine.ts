@@ -118,7 +118,11 @@ function ensureInningCell(state: GameState, side: TeamSide) {
 function endHalfInning(state: GameState) {
   const side = battingSide(state);
   ensureInningCell(state, side);
+  const ghost = state.ghostRunner;
+  // Preserve the ghost runner's runner state for the next half-inning.
+  const ghostState = ghost ? state.runnerState[ghost] : undefined;
   state.bases = emptyBases();
+  state.runnerState = {};
   state.outs = 0;
   state.balls = 0;
   state.strikes = 0;
@@ -145,7 +149,7 @@ function endHalfInning(state: GameState) {
       if (state.challenges.home === 0) state.challenges.home = 1;
     }
   }
-  placeGhostRunner(state);
+  placeGhostRunner(state, ghostState);
 }
 
 /**
@@ -153,7 +157,10 @@ function endHalfInning(state: GameState) {
  * previous inning (i.e. the batter directly preceding the leadoff hitter)
  * starts at second base.
  */
-function placeGhostRunner(state: GameState) {
+function placeGhostRunner(
+  state: GameState,
+  ghostState?: { runnerId: string; responsiblePitcherId: string; tainted: boolean },
+) {
   state.ghostRunner = null;
   if (state.inning <= state.setup.innings || state.over) return;
   const side = battingSide(state);
@@ -162,6 +169,15 @@ function placeGhostRunner(state: GameState) {
   const runnerId = order[(state.slot[side] - 1 + order.length) % order.length];
   state.bases[2] = runnerId;
   state.ghostRunner = runnerId;
+  if (ghostState) {
+    state.runnerState[runnerId] = ghostState;
+  } else {
+    state.runnerState[runnerId] = {
+      runnerId,
+      responsiblePitcherId: state.pitcher[fieldingSide(state)],
+      tainted: false,
+    };
+  }
 }
 
 function checkWalkOff(state: GameState) {

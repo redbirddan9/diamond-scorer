@@ -52,13 +52,15 @@ function cleanBatterInput(input: BatterInput): BatterInput | null {
     }
     case "batted": {
       if (!input.errorFielders?.length) return input;
-      // Without the error, the batter is retired. If the defense also retired other runners,
-      // keep those outs and remove the error fielders.
+      // Without the error, the batter would have been retired if the error is
+      // what allowed him to reach. Other retired runners stay out.
+      const retired = new Set(input.retired);
+      if (!retired.has("batter")) retired.add("batter");
       return {
         kind: "batted",
         batted: input.batted,
         fielders: input.fielders,
-        retired: input.retired.filter((r) => r !== "batter"),
+        retired: [...retired],
         errorFielders: undefined,
       };
     }

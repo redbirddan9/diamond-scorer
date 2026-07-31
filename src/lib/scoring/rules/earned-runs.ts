@@ -90,30 +90,37 @@ export function cleanRunsPerHalfInning(setup: GameSetup, events: GameEvent[]): M
 export function computeEarnedRuns(setup: GameSetup, events: GameEvent[], state: GameState): GameState {
   const clean = cleanRunsPerHalfInning(setup, events);
 
-  // Tally actual runs per half-inning and tainted/unearned runs.
-  const actualRunsByKey = new Map<string, { total: number; tainted: number }>();
-  const playEarned = new Map<string, number>();
+  // Determine which scored runners are earned, per half-inning.
+  const earnedByKey = new Map<string, string[]>();
+  const earnedRunIdsByPlay = new Map<string, string[]>();
 
   for (const play of state.plays) {
     const key = `${play.battingTeam}-${play.inning}-${play.half}`;
-    const { total, tainted } = actualRunsByKey.get(key) ?? { total: 0, tainted: 0 };
-    const newTotal = total + play.runsScored.length;
-    const newTainted = tainted + play.taintedRuns.length;
-    actualRunsByKey.set(key, { total: newTotal, tainted: newTainted });
-
+    const earnedSoFar = earnedByKey.get(key) ?? [];
     const cleanRuns = clean.get(key) ?? 0;
-    // Tainted runs are always unearned. Non-tainted runs are earned up to the clean limit.
-    const nonTainted = play.runsScored.length - play.taintedRuns.length;
-    const earnedAlready = total - tainted; // earned runs assigned before this play
-    const earned = Math.max(0, Math.min(nonTainted, cleanRuns - earnedAlready));
-    playEarned.set(play.id, earned);
+    const earnedCap = cleanRuns - earnedSoFar.length;
+
+    const playEarned: string[] = [];
+    // Tainted runs are always unearned; do not count them toward the cap.
+    const nonTainted = play.runsScored.filter((id) => !play.taintedRuns.includes(id));
+    // Mark earned in scoring order up to the clean limit.
+    for (const runnerId of nonTainted) {
+      if (playEarned.length < earnedCap) playEarned.push(runnerId);
+    }
+
+    earnedRunIdsByPlay.set(play.id, playEarned);
+    earnedByKey.set(key, [...earnedSoFar, ...playEarned]);
   }
 
   return {
     ...state,
     plays: state.plays.map((play) => ({
       ...play,
-      resolution: { ...play.resolution, earnedRuns: playEarned.get(play.id) ?? 0 },
+      earnedRunIds: earnedRunIdsByPlay.get(play.id) ?? [],
+      resolution: {
+        ...play.resolution,
+        earnedRuns: (earnedRunIdsByPlay.get(play.id) ?? []).length,
+      },
     })),
   };
 }

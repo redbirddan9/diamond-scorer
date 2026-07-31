@@ -85,8 +85,7 @@ function resolveBatter(
     runs,
     fielders,
     errorFielders,
-    // A secondary error on a legitimate hit does not unearn the hit's runs.
-    earnedRuns: errorFielders.length === 0 || input.kind === "hit",
+    earnedRuns: 0, // computed later via reconstruction
     isHit,
     isAtBat: !noAtBat,
     isPlateAppearance: true,
@@ -113,7 +112,7 @@ function resolveRunner(
     runs: adv.advances.filter((a) => a.to === 4).length,
     fielders: (input.kind === "pickoff" ? input.fielders : undefined) ?? [],
     errorFielders,
-    earnedRuns: errorFielders.length === 0,
+    earnedRuns: 0,
     isHit: false,
     isAtBat: false,
     isPlateAppearance: false,

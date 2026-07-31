@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createInitialState, currentBatterId, reduceEvents } from "./engine";
 import { buildScorecard } from "./scorecard";
 import { inferRetired, resolvePlay, validate } from "./rules";
+import { pitchingStats } from "./stats";
 import type { BatterInput, GameEvent, GameSetup, RunnerInput } from "./types";
 
 function team(prefix: string): GameSetup["home"] {
@@ -218,6 +219,50 @@ describe("rules engine", () => {
     expect(state.challenges.away).toBe(2);
     expect(state.challenges.home).toBe(1);
     expect(state.balls).toBe(2);
+  });
+});
+
+describe("earned run reconstruction", () => {
+  it("marks a run unearned when the runner reached on an error", () => {
+    const events: GameEvent[] = [
+      { id: "e1", ts: "", type: "play", batterId: "A1", input: { kind: "batted", batted: "ground", fielders: [5], retired: [], errorFielders: [5] } },
+      { id: "e2", ts: "", type: "play", batterId: "A2", input: { kind: "hit", bases: 3 } },
+    ];
+    const state = reduceEvents(setup, events);
+    const last = state.plays[state.plays.length - 1];
+    expect(last.runsScored).toHaveLength(1);
+    expect(last.earnedRunIds).toHaveLength(0);
+    expect(last.resolution.earnedRuns).toBe(0);
+  });
+
+  it("counts earned runs when the inning would have scored without errors", () => {
+    const events: GameEvent[] = [
+      { id: "e1", ts: "", type: "play", batterId: "A1", input: single },
+      { id: "e2", ts: "", type: "play", batterId: "A2", input: { kind: "hit", bases: 3 } },
+    ];
+    const state = reduceEvents(setup, events);
+    const last = state.plays[state.plays.length - 1];
+    expect(last.runsScored).toHaveLength(1);
+    expect(last.earnedRunIds).toHaveLength(1);
+    expect(last.resolution.earnedRuns).toBe(1);
+  });
+});
+
+describe("inherited and bequeathed runners", () => {
+  it("charges an inherited run to the original pitcher and tracks it on both lines", () => {
+    const events: GameEvent[] = [
+      { id: "e1", ts: "", type: "play", batterId: "A1", input: single },
+      { id: "sub1", ts: "", type: "sub", team: "home", outPlayerId: "H1", inPlayerId: "H2", position: "P", kind: "P" },
+      { id: "e2", ts: "", type: "play", batterId: "A2", input: { kind: "hit", bases: 3 } },
+    ];
+    const state = reduceEvents(setup, events);
+    const homePitching = pitchingStats(state, "home");
+    const h1 = homePitching.find((p) => p.playerId === "H1")!;
+    const h2 = homePitching.find((p) => p.playerId === "H2")!;
+    expect(h1.r).toBe(1); // run charged to pitcher who allowed the runner
+    expect(h2.inheritedRunners).toBe(1);
+    expect(h2.inheritedRunnersScored).toBe(1);
+    expect(h1.bequeathedRunnersScored).toBe(1);
   });
 });
 

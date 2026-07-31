@@ -8,7 +8,9 @@
 import type {
   AbsEvent,
   Advance,
+  AdvanceReason,
   Base,
+  BatterInput,
   Destination,
   GameEvent,
   GameSetup,
@@ -19,6 +21,7 @@ import type {
   TeamSide,
 } from "./types";
 import { resolvePlay } from "./rules";
+import { computeEarnedRuns } from "./rules/earned-runs";
 
 export function emptyBases(): Record<Base, string | null> {
   return { 1: null, 2: null, 3: null };
@@ -57,6 +60,7 @@ export function createInitialState(setup: GameSetup): GameState {
     subLog: [],
     ghostRunner: null,
     winner: null,
+    runnerState: {},
   };
 }
 
@@ -97,6 +101,7 @@ function clone(state: GameState): GameState {
     challenges: { ...state.challenges },
     absLog: [...state.absLog],
     subLog: [...state.subLog],
+    runnerState: { ...state.runnerState },
   };
 }
 
@@ -116,7 +121,11 @@ function ensureInningCell(state: GameState, side: TeamSide) {
 function endHalfInning(state: GameState) {
   const side = battingSide(state);
   ensureInningCell(state, side);
+  const ghost = state.ghostRunner;
+  // Preserve the ghost runner's runner state for the next half-inning.
+  const ghostState = ghost ? state.runnerState[ghost] : undefined;
   state.bases = emptyBases();
+  state.runnerState = {};
   state.outs = 0;
   state.balls = 0;
   state.strikes = 0;
@@ -143,7 +152,7 @@ function endHalfInning(state: GameState) {
       if (state.challenges.home === 0) state.challenges.home = 1;
     }
   }
-  placeGhostRunner(state);
+  placeGhostRunner(state, ghostState);
 }
 
 /**
@@ -151,7 +160,10 @@ function endHalfInning(state: GameState) {
  * previous inning (i.e. the batter directly preceding the leadoff hitter)
  * starts at second base.
  */
-function placeGhostRunner(state: GameState) {
+function placeGhostRunner(
+  state: GameState,
+  ghostState?: { runnerId: string; responsiblePitcherId: string; tainted: boolean },
+) {
   state.ghostRunner = null;
   if (state.inning <= state.setup.innings || state.over) return;
   const side = battingSide(state);
@@ -160,6 +172,15 @@ function placeGhostRunner(state: GameState) {
   const runnerId = order[(state.slot[side] - 1 + order.length) % order.length];
   state.bases[2] = runnerId;
   state.ghostRunner = runnerId;
+  if (ghostState) {
+    state.runnerState[runnerId] = ghostState;
+  } else {
+    state.runnerState[runnerId] = {
+      runnerId,
+      responsiblePitcherId: state.pitcher[fieldingSide(state)],
+      tainted: false,
+    };
+  }
 }
 
 function checkWalkOff(state: GameState) {
@@ -173,16 +194,20 @@ function checkWalkOff(state: GameState) {
   }
 }
 
-/** Apply runner + batter destinations to the base state. */
+/** Apply runner + batter destinations to the base state and runner-state book. */
 function applyMovement(
   state: GameState,
   advances: Advance[],
   batterId: string | null,
   batterTo: Destination | null,
-): { outs: number; scored: string[] } {
+  batterReason: AdvanceReason = "hit",
+): { outs: number; scored: string[]; taintedRuns: string[]; runResponsibility: Record<string, string> } {
   const offense = battingSide(state);
+  const defense = fieldingSide(state);
   const next = emptyBases();
   const scored: string[] = [];
+  const taintedRuns: string[] = [];
+  const runResponsibility: Record<string, string> = {};
   let outs = 0;
 
   const held = new Set(advances.map((a) => a.from));
@@ -197,27 +222,47 @@ function applyMovement(
     if (!id) continue;
     if (adv.to === "out") {
       outs += 1;
+      delete state.runnerState[id];
     } else if (adv.to === 4) {
       scored.push(id);
+      if (state.runnerState[id]?.tainted) taintedRuns.push(id);
+      runResponsibility[id] = state.runnerState[id]?.responsiblePitcherId ?? state.pitcher[defense];
       addRun(state, offense);
+      delete state.runnerState[id];
     } else {
       next[adv.to] = id;
+      if (taintedReason(adv.reason)) {
+        state.runnerState[id] = { ...state.runnerState[id], runnerId: id, tainted: true };
+      }
     }
   }
 
   if (batterId && batterTo !== null) {
     if (batterTo === "out") {
       outs += 1;
+      delete state.runnerState[batterId];
     } else if (batterTo === 4) {
       scored.push(batterId);
+      if (state.runnerState[batterId]?.tainted) taintedRuns.push(batterId);
+      runResponsibility[batterId] = state.runnerState[batterId]?.responsiblePitcherId ?? state.pitcher[defense];
       addRun(state, offense);
+      delete state.runnerState[batterId];
     } else {
       next[batterTo] = batterId;
+      state.runnerState[batterId] = {
+        runnerId: batterId,
+        responsiblePitcherId: state.pitcher[defense],
+        tainted: taintedReason(batterReason),
+      };
     }
   }
 
   state.bases = next;
-  return { outs, scored };
+  return { outs, scored, taintedRuns, runResponsibility };
+}
+
+function taintedReason(reason: AdvanceReason): boolean {
+  return reason === "error" || reason === "passed-ball" || reason === "catcher-interference";
 }
 
 function logPlay(
@@ -238,7 +283,14 @@ function logPlay(
   if (resolution.isHit) state.hits[offense] += 1;
   state.errors[defense] += resolution.errorFielders.length;
 
-  const { outs, scored } = applyMovement(state, resolution.advances, batterId, resolution.batterTo);
+  const batterReason = ev.type === "play" ? batterReasonFor(ev.input) : "other";
+  const { outs, scored, taintedRuns, runResponsibility } = applyMovement(
+    state,
+    resolution.advances,
+    batterId,
+    resolution.batterTo,
+    batterReason,
+  );
   state.outs += outs;
 
   const logged: LoggedPlay = {
@@ -255,6 +307,9 @@ function logPlay(
     pitcherId,
     outsBefore,
     runsScored: scored,
+    taintedRuns,
+    earnedRunIds: [], // computed by computeEarnedRuns
+    runResponsibility,
     pitchCount,
   };
   state.plays.push(logged);
@@ -271,6 +326,23 @@ function logPlay(
   if (state.outs >= 3) endHalfInning(state);
   else checkWalkOff(state);
   return state;
+}
+
+function batterReasonFor(input: BatterInput): AdvanceReason {
+  switch (input.kind) {
+    case "hit":
+      return "hit";
+    case "walk":
+      return "walk";
+    case "batted":
+      return input.errorFielders?.length ? "error" : "fielders-choice";
+    case "catcher-interference":
+      return "catcher-interference";
+    case "dropped-third":
+      return input.cause === "passed-ball" ? "passed-ball" : "error";
+    default:
+      return "other";
+  }
 }
 
 /** How the count changes when an ABS challenge is resolved. */
@@ -327,6 +399,11 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
         typeof ev.slot === "number" && ev.slot >= 0 && ev.slot < order.length
           ? ev.slot
           : order.indexOf(ev.outPlayerId);
+      const isPitcherChange = ev.position === "P" || state.pitcher[ev.team] === ev.outPlayerId;
+      const inheritedRunners = isPitcherChange
+        ? ([1, 2, 3] as Base[]).map((b) => state.bases[b]).filter((id): id is string => Boolean(id))
+        : undefined;
+      const previousPitcherId = isPitcherChange ? state.pitcher[ev.team] : undefined;
       state.subLog.push({
         team: ev.team,
         kind: ev.kind ?? "DEF",
@@ -339,6 +416,9 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
         battingTeam,
         battingSlot: state.slot[battingTeam] % Math.max(state.lineup[battingTeam].length, 1),
         playIndex: state.plays.length,
+        inheritedRunners,
+        previousPitcherId,
+        newPitcherId: isPitcherChange ? ev.inPlayerId : undefined,
       });
       if (typeof ev.slot === "number" && ev.slot >= 0 && ev.slot < order.length) {
         order[ev.slot] = ev.inPlayerId;
@@ -347,11 +427,15 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
         if (idx >= 0) order[idx] = ev.inPlayerId;
       }
       if (ev.position) state.positions[ev.team][ev.inPlayerId] = ev.position;
-      if (ev.position === "P" || state.pitcher[ev.team] === ev.outPlayerId) {
-        if (ev.position === "P") state.pitcher[ev.team] = ev.inPlayerId;
-      }
+      if (isPitcherChange) state.pitcher[ev.team] = ev.inPlayerId;
       ([1, 2, 3] as Base[]).forEach((b) => {
-        if (state.bases[b] === ev.outPlayerId) state.bases[b] = ev.inPlayerId;
+        if (state.bases[b] === ev.outPlayerId) {
+          state.bases[b] = ev.inPlayerId;
+          if (state.runnerState[ev.outPlayerId]) {
+            state.runnerState[ev.inPlayerId] = { ...state.runnerState[ev.outPlayerId], runnerId: ev.inPlayerId };
+            delete state.runnerState[ev.outPlayerId];
+          }
+        }
       });
       return state;
     }
@@ -368,7 +452,12 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
   }
 }
 
-export function reduceEvents(setup: GameSetup, events: GameEvent[]): GameState {
+export function reduceEventsRaw(setup: GameSetup, events: GameEvent[]): GameState {
   return events.reduce<GameState>(applyEvent, createInitialState(setup));
+}
+
+export function reduceEvents(setup: GameSetup, events: GameEvent[]): GameState {
+  const raw = reduceEventsRaw(setup, events);
+  return computeEarnedRuns(setup, events, raw);
 }
 

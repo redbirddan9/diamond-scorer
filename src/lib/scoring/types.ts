@@ -175,6 +175,7 @@ export type AdvanceReason =
   | "pickoff"
   | "caught-stealing"
   | "defensive-indifference"
+  | "catcher-interference"
   | "other";
 
 export interface Advance {
@@ -195,7 +196,8 @@ export interface PlayResolution {
   runs: number;
   fielders: number[];
   errorFielders: number[];
-  earnedRuns: boolean;
+  /** Number of runs that are earned (computed by reconstruction). */
+  earnedRuns: number;
   isHit: boolean;
   isAtBat: boolean;
   isPlateAppearance: boolean;
@@ -302,6 +304,21 @@ export interface SubRecord {
   battingSlot: number;
   /** Number of plays already logged when the substitution happened. */
   playIndex?: number;
+  /** Runner ids on base at the moment of the substitution (for pitcher changes). */
+  inheritedRunners?: string[];
+  /** Pitcher being relieved when this substitution is a pitching change. */
+  previousPitcherId?: string;
+  /** New pitcher when this substitution introduces a new pitcher. */
+  newPitcherId?: string;
+}
+
+/** Per-runner bookkeeping for earned/unearned run reconstruction and inherited runners. */
+export interface RunnerState {
+  runnerId: string;
+  /** Pitcher who originally allowed this runner to reach base. */
+  responsiblePitcherId: string;
+  /** True if the runner reached or advanced on an error, passed ball, or catcher's interference. */
+  tainted: boolean;
 }
 
 /** A play, with the resolved official result and its game context. */
@@ -320,7 +337,14 @@ export interface LoggedPlay {
   slot: number | null;
   pitcherId: string;
   outsBefore: number;
+  /** Runner ids that scored on this play. */
   runsScored: string[];
+  /** Runner ids that scored but were tainted by error/passed ball/catcher's interference. */
+  taintedRuns: string[];
+  /** Runner ids that scored earned runs. */
+  earnedRunIds: string[];
+  /** For each run, the pitcher id charged with that run. */
+  runResponsibility: Record<string, string>;
   pitchCount: number;
 }
 
@@ -349,6 +373,8 @@ export interface GameState {
   subLog: SubRecord[];
   ghostRunner: string | null;
   winner: TeamSide | null;
+  /** Per-runner bookkeeping for earned/unearned and inherited runner tracking. */
+  runnerState: Record<string, RunnerState>;
 }
 
 export type GameStatus = "in-progress" | "final" | "archived";

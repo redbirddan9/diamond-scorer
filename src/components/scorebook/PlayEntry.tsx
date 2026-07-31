@@ -34,14 +34,25 @@ type Flow =
   | { kind: "error" }
   | { kind: "sac-bunt" }
   | { kind: "steal" }
+  | { kind: "indifference" }
   | { kind: "pickoff" }
-  | { kind: "dropped-third" };
+  | { kind: "dropped-third" }
+  | { kind: "hit-error" };
 
-const BATTED: { key: BattedBallType; hot: string; symbol: string; label: string }[] = [
-  { key: "ground", hot: "g", symbol: "GB", label: "Ground Ball" },
-  { key: "fly", hot: "f", symbol: "F", label: "Fly Ball" },
-  { key: "line", hot: "l", symbol: "L", label: "Line Drive" },
-  { key: "popup", hot: "p", symbol: "P", label: "Pop Up" },
+/** Out types, in official scorebook order. */
+const OUT_TYPES: {
+  key: string;
+  hot: string;
+  symbol: string;
+  label: string;
+  batted: BattedBallType;
+  foul?: boolean;
+  multi: boolean;
+}[] = [
+  { key: "go", hot: "g", symbol: "GO", label: "Ground-out", batted: "ground", multi: true },
+  { key: "po", hot: "p", symbol: "P", label: "Pop-out", batted: "popup", multi: false },
+  { key: "lo", hot: "l", symbol: "L", label: "Line-out", batted: "line", multi: false },
+  { key: "pf", hot: "f", symbol: "PF", label: "Pop foul", batted: "popup", foul: true, multi: false },
 ];
 
 export const MENU: Node[] = [
@@ -62,6 +73,7 @@ export const MENU: Node[] = [
         label: "Ground Rule 2B",
         batter: { kind: "hit", bases: 2, groundRule: true },
       },
+      { key: "hite", hot: "e", symbol: "+E", label: "Hit + Error", flow: { kind: "hit-error" } },
     ],
   },
   { key: "out", hot: "o", symbol: "O", label: "Out", flow: { kind: "out" } },
@@ -81,7 +93,7 @@ export const MENU: Node[] = [
       {
         key: "kl",
         hot: "l",
-        symbol: "L",
+        symbol: "\uA7B0",
         label: "Looking",
         batter: { kind: "strikeout", swinging: false },
       },
@@ -101,10 +113,28 @@ export const MENU: Node[] = [
   {
     key: "other",
     hot: "x",
-    symbol: "…",
+    symbol: "\u2026",
     label: "Other",
     children: [
-      { key: "abs", hot: "a", symbol: "ABS", label: "ABS Challenge", action: "abs" },
+      {
+        key: "di",
+        hot: "d",
+        symbol: "DI",
+        label: "Def. Indifference",
+        flow: { kind: "indifference" },
+      },
+      { key: "wp", hot: "w", symbol: "WP", label: "Wild Pitch", runner: { kind: "wild-pitch" } },
+      { key: "pb", hot: "p", symbol: "PB", label: "Passed Ball", runner: { kind: "passed-ball" } },
+      {
+        key: "k3o",
+        hot: "3",
+        symbol: "K2-3",
+        label: "Dropped 3rd Strike",
+        flow: { kind: "dropped-third" },
+      },
+      { key: "bk", hot: "k", symbol: "BK", label: "Balk", runner: { kind: "balk" } },
+      { key: "po", hot: "o", symbol: "PO", label: "Pickoff", flow: { kind: "pickoff" } },
+      { key: "sh", hot: "b", symbol: "SH", label: "Sac Bunt", flow: { kind: "sac-bunt" } },
       {
         key: "ibb",
         hot: "i",
@@ -112,25 +142,7 @@ export const MENU: Node[] = [
         label: "Intentional Walk",
         batter: { kind: "walk", intentional: true },
       },
-      { key: "sh", hot: "b", symbol: "SH", label: "Sac Bunt", flow: { kind: "sac-bunt" } },
-      { key: "wp", hot: "w", symbol: "WP", label: "Wild Pitch", runner: { kind: "wild-pitch" } },
-      { key: "pb", hot: "p", symbol: "PB", label: "Passed Ball", runner: { kind: "passed-ball" } },
-      { key: "bk", hot: "k", symbol: "BK", label: "Balk", runner: { kind: "balk" } },
-      { key: "po", hot: "o", symbol: "PO", label: "Pickoff", flow: { kind: "pickoff" } },
-      {
-        key: "di",
-        hot: "d",
-        symbol: "DI",
-        label: "Defensive Indifference",
-        flow: { kind: "steal" },
-      },
-      {
-        key: "ci",
-        hot: "c",
-        symbol: "CI",
-        label: "Catcher's Interference",
-        batter: { kind: "catcher-interference" },
-      },
+      { key: "abs", hot: "a", symbol: "ABS", label: "ABS Challenge", action: "abs" },
     ],
   },
   { key: "sub", hot: "u", symbol: "SUB", label: "Substitution", action: "sub" },
@@ -160,13 +172,17 @@ interface PlayEntryProps {
   onDepthChange?: (depth: number) => void;
 }
 
+type OutType = (typeof OUT_TYPES)[number];
+
 type Stage =
   | { name: "menu" }
-  | { name: "batted-type"; flow: Flow }
-  | { name: "fielders"; flow: Flow; batted: BattedBallType }
-  | { name: "retired"; batted: BattedBallType; fielders: number[] }
+  | { name: "out-type" }
+  | { name: "fielders"; flow: Flow; out?: OutType }
+  | { name: "retired"; out: OutType; fielders: number[] }
+  | { name: "hit-error-base" }
+  | { name: "hit-error-fielder"; bases: 1 | 2 | 3 }
   | { name: "steal-runners"; indifference: boolean }
-  | { name: "steal-outcome"; runners: Base[]; indifference: boolean }
+  | { name: "steal-outcome"; runners: Base[] }
   | { name: "pickoff-base" }
   | { name: "pickoff-outcome"; from: Base }
   | { name: "dropped-cause" }
@@ -185,11 +201,9 @@ export function PlayEntry({
   const [fielders, setFielders] = useState<number[]>([]);
   const [retired, setRetired] = useState<OutTarget[]>(["batter"]);
   const [runners, setRunners] = useState<Base[]>([]);
+  const [caught, setCaught] = useState<Base[]>([]);
 
-  const occupied = useMemo(
-    () => ([1, 2, 3] as Base[]).filter((b) => bases[b]),
-    [bases],
-  );
+  const occupied = useMemo(() => ([1, 2, 3] as Base[]).filter((b) => bases[b]), [bases]);
 
   const reset = useCallback(() => {
     setPath([]);
@@ -197,6 +211,7 @@ export function PlayEntry({
     setFielders([]);
     setRetired(["batter"]);
     setRunners([]);
+    setCaught([]);
   }, []);
 
   const commitPlay = useCallback(
@@ -216,20 +231,32 @@ export function PlayEntry({
   );
 
   const startFlow = useCallback(
-    (flow: Flow, node?: Node) => {
+    (flow: Flow) => {
       switch (flow.kind) {
         case "out":
+          setFielders([]);
+          setStage({ name: "out-type" });
+          break;
         case "error":
-          setStage({ name: "batted-type", flow });
+          setFielders([]);
+          setStage({ name: "fielders", flow });
+          break;
+        case "hit-error":
+          setStage({ name: "hit-error-base" });
           break;
         case "sac-bunt":
           setFielders([]);
-          setStage({ name: "fielders", flow, batted: "bunt" });
+          setStage({ name: "fielders", flow });
           break;
-        case "steal": {
-          const indifference = node?.key === "di";
+        case "steal":
+        case "indifference": {
+          const indifference = flow.kind === "indifference";
           if (occupied.length === 1) {
-            setStage({ name: "steal-outcome", runners: [occupied[0]], indifference });
+            if (indifference) {
+              commitRunner({ kind: "defensive-indifference", runners: [occupied[0]] });
+              return;
+            }
+            setStage({ name: "steal-outcome", runners: [occupied[0]] });
           } else {
             setRunners([]);
             setStage({ name: "steal-runners", indifference });
@@ -244,7 +271,7 @@ export function PlayEntry({
           break;
       }
     },
-    [occupied],
+    [commitRunner, occupied],
   );
 
   const choose = useCallback(
@@ -259,7 +286,7 @@ export function PlayEntry({
         return;
       }
       if (node.flow) {
-        startFlow(node.flow, node);
+        startFlow(node.flow);
         return;
       }
       if (node.batter) commitPlay(node.batter);
@@ -287,39 +314,59 @@ export function PlayEntry({
   }, [depth, onDepthChange]);
 
   const finishFielders = useCallback(
-    (flow: Flow, batted: BattedBallType, picked: number[]) => {
+    (flow: Flow, picked: number[], out?: OutType) => {
       if (flow.kind === "error") {
-        commitPlay({ kind: "batted", batted, fielders: picked, retired: [], errorFielders: picked });
+        commitPlay({
+          kind: "batted",
+          batted: "ground",
+          fielders: picked,
+          retired: [],
+          errorFielders: picked,
+        });
         return;
       }
       if (flow.kind === "sac-bunt") {
         commitPlay({ kind: "sac-bunt", fielders: picked, retired: ["batter"] });
         return;
       }
-      // Out: the scorer only picks who was retired when runners are aboard.
+      if (!out) return;
+      // The scorer only picks who was retired when runners are aboard.
       if (occupied.length === 0) {
-        commitPlay({ kind: "batted", batted, fielders: picked, retired: ["batter"] });
+        commitPlay({
+          kind: "batted",
+          batted: out.batted,
+          foul: out.foul,
+          fielders: picked,
+          retired: ["batter"],
+        });
         return;
       }
       setRetired(["batter"]);
-      setStage({ name: "retired", batted, fielders: picked });
+      setStage({ name: "retired", out, fielders: picked });
     },
     [commitPlay, occupied.length],
   );
 
   const pickFielder = useCallback(
     (n: number) => {
+      if (stage.name === "hit-error-fielder") {
+        commitPlay({
+          kind: "hit",
+          bases: stage.bases,
+          secondary: { fielder: n, runner: "batter" },
+        });
+        return;
+      }
       if (stage.name !== "fielders") return;
-      const single = stage.flow.kind === "out" && stage.batted !== "ground";
-      const next = [...fielders, n];
-      if (single) {
-        finishFielders(stage.flow, stage.batted, [n]);
+      const multi = stage.flow.kind === "error" || stage.flow.kind === "sac-bunt" || Boolean(stage.out?.multi);
+      if (!multi) {
+        finishFielders(stage.flow, [n], stage.out);
         setFielders([]);
         return;
       }
-      setFielders(next);
+      setFielders((f) => [...f, n]);
     },
-    [fielders, finishFielders, stage],
+    [commitPlay, finishFielders, stage],
   );
 
   useEffect(() => {
@@ -329,9 +376,14 @@ export function PlayEntry({
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const k = e.key.toLowerCase();
 
-      if (stage.name === "fielders") {
+      if (stage.name === "fielders" || stage.name === "hit-error-fielder") {
         if (/^[1-9]$/.test(k)) pickFielder(Number(k));
-        else if (e.key === "Enter" && fielders.length) finishFielders(stage.flow, stage.batted, fielders);
+        else if (
+          e.key === "Enter" &&
+          stage.name === "fielders" &&
+          fielders.length
+        )
+          finishFielders(stage.flow, fielders, stage.out);
         else if (e.key === "Backspace") setFielders((f) => f.slice(0, -1));
         else if (e.key === "Escape") back();
         else return;
@@ -339,11 +391,11 @@ export function PlayEntry({
         return;
       }
 
-      if (stage.name === "batted-type") {
-        const b = BATTED.find((x) => x.hot === k);
-        if (b) {
+      if (stage.name === "out-type") {
+        const o = OUT_TYPES.find((x) => x.hot === k);
+        if (o) {
           setFielders([]);
-          setStage({ name: "fielders", flow: stage.flow, batted: b.key });
+          setStage({ name: "fielders", flow: { kind: "out" }, out: o });
           e.preventDefault();
         } else if (e.key === "Escape") {
           back();
@@ -377,27 +429,24 @@ export function PlayEntry({
 
   /* ----------------------------- stages ----------------------------- */
 
-  if (stage.name === "batted-type") {
+  if (stage.name === "out-type") {
     return (
       <div className="space-y-2">
-        <Header
-          title={stage.flow.kind === "error" ? "Error — batted ball" : "Out — batted ball"}
-          onBack={back}
-        />
+        <Header title="Out — how?" onBack={back} />
         <div className="grid grid-cols-4 gap-2">
-          {BATTED.map((b) => (
+          {OUT_TYPES.map((o) => (
             <Button
-              key={b.key}
+              key={o.key}
               variant="secondary"
               className="relative h-12 flex-col gap-0"
               onClick={() => {
                 setFielders([]);
-                setStage({ name: "fielders", flow: stage.flow, batted: b.key });
+                setStage({ name: "fielders", flow: { kind: "out" }, out: o });
               }}
             >
-              <span className="font-mono text-base font-bold leading-none">{b.symbol}</span>
-              <span className="text-[10px] font-normal opacity-80">{b.label}</span>
-              <Hint k={b.hot.toUpperCase()} corner />
+              <span className="font-mono text-base font-bold leading-none">{o.symbol}</span>
+              <span className="text-[10px] font-normal opacity-80">{o.label}</span>
+              <Hint k={o.hot.toUpperCase()} corner />
             </Button>
           ))}
         </div>
@@ -405,14 +454,49 @@ export function PlayEntry({
     );
   }
 
-  if (stage.name === "fielders") {
-    const single = stage.flow.kind === "out" && stage.batted !== "ground";
+  if (stage.name === "hit-error-base") {
+    const opts: { bases: 1 | 2 | 3; label: string }[] = [
+      { bases: 1, label: "Single" },
+      { bases: 2, label: "Double" },
+      { bases: 3, label: "Triple" },
+    ];
     return (
       <div className="space-y-2">
-        <Header
-          title={`${stage.flow.kind === "error" ? "Error" : stage.flow.kind === "sac-bunt" ? "Sac bunt" : "Out"} — ${single ? "position" : "position numbers"}`}
-          onBack={back}
-        />
+        <Header title="Hit + error — the hit" onBack={back} />
+        <div className="grid grid-cols-3 gap-2">
+          {opts.map((o) => (
+            <Button
+              key={o.bases}
+              variant="secondary"
+              className="h-12"
+              onClick={() => setStage({ name: "hit-error-fielder", bases: o.bases })}
+            >
+              {o.label}
+            </Button>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          The hit stands; the error only explains the extra base.
+        </p>
+      </div>
+    );
+  }
+
+  if (stage.name === "fielders" || stage.name === "hit-error-fielder") {
+    const multi =
+      stage.name === "fielders" &&
+      (stage.flow.kind === "error" || stage.flow.kind === "sac-bunt" || Boolean(stage.out?.multi));
+    const title =
+      stage.name === "hit-error-fielder"
+        ? "Which fielder made the error?"
+        : stage.flow.kind === "error"
+          ? "Error — position number(s)"
+          : stage.flow.kind === "sac-bunt"
+            ? "Sac bunt — position numbers"
+            : `${stage.out?.label} — position${multi ? " numbers" : ""}`;
+    return (
+      <div className="space-y-2">
+        <Header title={title} onBack={back} />
         <div className="grid grid-cols-5 gap-1.5">
           {POSITIONS.map((p) => (
             <Button
@@ -426,10 +510,10 @@ export function PlayEntry({
             </Button>
           ))}
         </div>
-        {!single && (
+        {multi && stage.name === "fielders" && (
           <div className="flex items-center gap-2">
             <div className="flex h-11 flex-1 items-center rounded-md border border-border px-3 font-mono text-lg">
-              {fielders.join("-") || "—"}
+              {fielders.join("-") || "\u2014"}
             </div>
             <Button variant="ghost" className="h-11" onClick={() => setFielders([])}>
               Clear
@@ -437,13 +521,13 @@ export function PlayEntry({
             <Button
               className="h-11 px-6"
               disabled={!fielders.length}
-              onClick={() => finishFielders(stage.flow, stage.batted, fielders)}
+              onClick={() => finishFielders(stage.flow, fielders, stage.out)}
             >
-              Apply <Hint k="↵" />
+              Apply <Hint k="\u21B5" />
             </Button>
           </div>
         )}
-        {stage.flow.kind === "error" && fielders.length > 1 && (
+        {stage.name === "fielders" && stage.flow.kind === "error" && fielders.length > 1 && (
           <p className="text-xs text-muted-foreground">
             {fielders.length} errors will be charged on this play.
           </p>
@@ -457,7 +541,7 @@ export function PlayEntry({
       setRetired((r) => (r.includes(t) ? r.filter((x) => x !== t) : [...r, t]));
     return (
       <div className="space-y-2">
-        <Header title={`${fielders.join("-")} — who was retired?`} onBack={back} />
+        <Header title={`${stage.fielders.join("-")} — who was retired?`} onBack={back} />
         <div className="grid grid-cols-4 gap-2">
           <Button
             variant={retired.includes("batter") ? "default" : "outline"}
@@ -485,7 +569,8 @@ export function PlayEntry({
           onClick={() =>
             commitPlay({
               kind: "batted",
-              batted: stage.batted,
+              batted: stage.out.batted,
+              foul: stage.out.foul,
               fielders: stage.fielders,
               retired,
             })
@@ -502,7 +587,10 @@ export function PlayEntry({
       setRunners((r) => (r.includes(b) ? r.filter((x) => x !== b) : [...r, b]));
     return (
       <div className="space-y-2">
-        <Header title="Which runner(s) went?" onBack={back} />
+        <Header
+          title={stage.indifference ? "Defensive indifference — runner(s)" : "Which runner(s) went?"}
+          onBack={back}
+        />
         <div className="grid grid-cols-3 gap-2">
           {occupied.map((b) => (
             <Button
@@ -519,38 +607,84 @@ export function PlayEntry({
         <Button
           className="h-12 w-full"
           disabled={!runners.length}
-          onClick={() =>
-            setStage({ name: "steal-outcome", runners, indifference: stage.indifference })
-          }
+          onClick={() => {
+            if (stage.indifference) {
+              commitRunner({ kind: "defensive-indifference", runners });
+              return;
+            }
+            setCaught([]);
+            setStage({ name: "steal-outcome", runners });
+          }}
         >
-          Continue
+          {stage.indifference ? "Record DI" : "Continue"}
         </Button>
       </div>
     );
   }
 
   if (stage.name === "steal-outcome") {
-    const send = (safe: boolean) => {
-      if (stage.indifference && safe) {
-        commitRunner({ kind: "defensive-indifference", from: stage.runners[0] });
-        return;
-      }
+    const single = stage.runners.length === 1;
+    const send = (allSafe: boolean) =>
       commitRunner({
         kind: "steal",
-        attempts: stage.runners.map((from) => ({ from, safe })),
+        attempts: stage.runners.map((from) => ({ from, safe: allSafe })),
       });
-    };
+    if (single) {
+      return (
+        <div className="space-y-2">
+          <Header title="Stolen base attempt" onBack={back} />
+          <div className="grid grid-cols-2 gap-2">
+            <Button className="h-14 text-base" onClick={() => send(true)}>
+              Safe (SB)
+            </Button>
+            <Button variant="secondary" className="h-14 text-base" onClick={() => send(false)}>
+              Caught (CS)
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    const toggle = (b: Base) =>
+      setCaught((c) => (c.includes(b) ? c.filter((x) => x !== b) : [...c, b]));
     return (
       <div className="space-y-2">
-        <Header title="Stolen base attempt" onBack={back} />
-        <div className="grid grid-cols-2 gap-2">
-          <Button className="h-14 text-base" onClick={() => send(true)}>
-            Safe (SB)
-          </Button>
-          <Button variant="secondary" className="h-14 text-base" onClick={() => send(false)}>
-            Caught (CS)
-          </Button>
+        <Header title="Outcome for each runner" onBack={back} />
+        <div className="space-y-1.5">
+          {stage.runners.map((b) => (
+            <div key={b} className="flex items-center gap-2 rounded-md border border-border p-1.5">
+              <span className="min-w-0 flex-1 truncate text-sm">
+                {BASE_LABEL[b]} — {nameOf(bases[b]!)}
+              </span>
+              <Button
+                size="sm"
+                variant={caught.includes(b) ? "outline" : "default"}
+                className="h-10 w-20"
+                onClick={() => setCaught((c) => c.filter((x) => x !== b))}
+              >
+                Safe
+              </Button>
+              <Button
+                size="sm"
+                variant={caught.includes(b) ? "default" : "outline"}
+                className="h-10 w-20"
+                onClick={() => toggle(b)}
+              >
+                Caught
+              </Button>
+            </div>
+          ))}
         </div>
+        <Button
+          className="h-12 w-full"
+          onClick={() =>
+            commitRunner({
+              kind: "steal",
+              attempts: stage.runners.map((from) => ({ from, safe: !caught.includes(from) })),
+            })
+          }
+        >
+          Record
+        </Button>
       </div>
     );
   }
@@ -580,10 +714,12 @@ export function PlayEntry({
     return (
       <div className="space-y-2">
         <Header title="Pickoff" onBack={back} />
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <Button
             className="h-14 text-base"
-            onClick={() => commitRunner({ kind: "pickoff", from: stage.from, out: true, fielders: [1, 3] })}
+            onClick={() =>
+              commitRunner({ kind: "pickoff", from: stage.from, out: true, fielders: [1, 3] })
+            }
           >
             Runner Out
           </Button>
@@ -595,6 +731,13 @@ export function PlayEntry({
             }
           >
             Pickoff Error
+          </Button>
+          <Button
+            variant="ghost"
+            className="h-14 text-base"
+            onClick={() => commitRunner({ kind: "pickoff", from: stage.from, out: false })}
+          >
+            Runner Safe
           </Button>
         </div>
       </div>

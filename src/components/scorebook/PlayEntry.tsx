@@ -508,6 +508,7 @@ export function PlayEntry({
   if (stage.name === "retired") {
     const toggle = (t: OutTarget) =>
       setRetired((r) => (r.includes(t) ? r.filter((x) => x !== t) : [...r, t]));
+    void 0;
     return (
       <div className="space-y-2">
         <Header title={`${fielders.join("-")} — who was retired?`} onBack={back} />

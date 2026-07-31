@@ -1,5 +1,5 @@
 /** Statistics derived entirely from the reduced game state. */
-import type { GameState, TeamSide } from "./types";
+import type { GameState, SubRecord, TeamSide } from "./types";
 
 export interface BattingLine {
   playerId: string;

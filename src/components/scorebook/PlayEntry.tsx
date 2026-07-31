@@ -653,6 +653,7 @@ export function PlayEntry({
         </p>
         <Button
           className="h-12 w-full text-base"
+          disabled={retired.length === 0}
           onClick={() =>
             commitPlay({
               kind: "batted",

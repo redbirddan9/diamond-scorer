@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createInitialState, currentBatterId, reduceEvents } from "./engine";
 import { buildScorecard } from "./scorecard";
 import { inferRetired, resolvePlay, validate } from "./rules";
-import type { BatterInput, GameEvent, GameSetup, PlayInput } from "./types";
+import type { BatterInput, GameEvent, GameSetup, RunnerInput } from "./types";
 
 function team(prefix: string): GameSetup["home"] {
   const players = Array.from({ length: 9 }, (_, i) => ({

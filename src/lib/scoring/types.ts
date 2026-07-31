@@ -341,6 +341,10 @@ export interface LoggedPlay {
   runsScored: string[];
   /** Runner ids that scored but were tainted by error/passed ball/catcher's interference. */
   taintedRuns: string[];
+  /** Runner ids that scored earned runs. */
+  earnedRunIds: string[];
+  /** For each run, the pitcher id charged with that run. */
+  runResponsibility: Record<string, string>;
   pitchCount: number;
 }
 

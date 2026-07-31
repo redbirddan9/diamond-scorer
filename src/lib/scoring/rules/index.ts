@@ -22,6 +22,7 @@ import { validatePlay } from "./validate";
 export * from "./situation";
 export { resolveRunnerAdvancement, resolveRunnerEvent } from "./advancement";
 export { classifyBatterPlay, classifyRunnerPlay } from "./classify";
+export { inferRetired } from "./infer-outs";
 export { calculateRBIs } from "./rbi";
 export { validatePlay } from "./validate";
 

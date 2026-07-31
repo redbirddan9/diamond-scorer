@@ -69,6 +69,7 @@ export function ReviewPanel({
     pitcherId: "",
     outsBefore: state.outs,
     runsScored: [],
+    taintedRuns: [],
     pitchCount: 0,
   });
 

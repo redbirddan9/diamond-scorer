@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { inferRetired } from "@/lib/scoring/rules";
 import type {
   Base,
   BatterInput,
@@ -194,7 +195,7 @@ export function PlayEntry({
   const [path, setPath] = useState<Node[]>([]);
   const [stage, setStage] = useState<Stage>({ name: "menu" });
   const [fielders, setFielders] = useState<number[]>([]);
-  const [retired, setRetired] = useState<OutTarget[]>(["batter"]);
+  const [retired, setRetired] = useState<OutTarget[]>([]);
   const [runners, setRunners] = useState<Base[]>([]);
 
   const occupied = useMemo(
@@ -206,7 +207,7 @@ export function PlayEntry({
     setPath([]);
     setStage({ name: "menu" });
     setFielders([]);
-    setRetired(["batter"]);
+    setRetired([]);
     setRunners([]);
   }, []);
 
@@ -286,7 +287,7 @@ export function PlayEntry({
     if (stage.name !== "menu") {
       setStage({ name: "menu" });
       setFielders([]);
-      setRetired(["batter"]);
+      setRetired([]);
       return;
     }
     setPath((p) => p.slice(0, -1));
@@ -315,10 +316,16 @@ export function PlayEntry({
         commitPlay({ kind: "batted", batted, fielders: picked, retired: ["batter"] });
         return;
       }
-      setRetired(["batter"]);
+      // Ground balls: the fielding sequence tells us who was retired.
+      const inferred = inferRetired(bases, batted, picked);
+      if (inferred) {
+        commitPlay({ kind: "batted", batted, fielders: picked, retired: inferred });
+        return;
+      }
+      setRetired([]);
       setStage({ name: "retired", batted, fielders: picked });
     },
-    [commitPlay, occupied.length],
+    [bases, commitPlay, occupied.length],
   );
 
   const pickFielder = useCallback(

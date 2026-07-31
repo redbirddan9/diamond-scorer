@@ -116,11 +116,11 @@ export type BatterInput =
   | { kind: "sac-bunt"; fielders: number[]; retired?: OutTarget[] };
 
 export type RunnerInput =
-  | { kind: "steal"; attempts: { from: Base; safe: boolean }[] }
+  | { kind: "steal"; attempts?: { from: Base; safe: boolean }[] }
   | { kind: "wild-pitch" }
   | { kind: "passed-ball" }
   | { kind: "balk" }
-  | { kind: "defensive-indifference"; froms: Base[] }
+  | { kind: "defensive-indifference"; froms?: Base[] }
   | {
       kind: "pickoff";
       from: Base;

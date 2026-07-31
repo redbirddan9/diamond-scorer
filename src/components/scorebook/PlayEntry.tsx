@@ -239,7 +239,7 @@ export function PlayEntry({
           break;
         case "steal": {
           const indifference = node?.key === "di";
-          if (occupied.length === 1) {
+          if (occupied.length === 1 && !indifference) {
             setStage({ name: "steal-outcome", runners: [occupied[0]], indifference });
           } else {
             setRunners([]);
@@ -642,7 +642,10 @@ export function PlayEntry({
       setRunners((r) => (r.includes(b) ? r.filter((x) => x !== b) : [...r, b]));
     return (
       <div className="space-y-2">
-        <Header title="Which runner(s) went?" onBack={back} />
+        <Header
+          title={stage.indifference ? "Which runner(s) advanced?" : "Which runner(s) went?"}
+          onBack={back}
+        />
         <div className="grid grid-cols-3 gap-2">
           {occupied.map((b) => (
             <Button
@@ -659,11 +662,15 @@ export function PlayEntry({
         <Button
           className="h-12 w-full"
           disabled={!runners.length}
-          onClick={() =>
-            setStage({ name: "steal-outcome", runners, indifference: stage.indifference })
-          }
+          onClick={() => {
+            if (stage.indifference) {
+              commitRunner({ kind: "defensive-indifference", froms: runners });
+              return;
+            }
+            setStage({ name: "steal-outcome", runners, indifference: stage.indifference });
+          }}
         >
-          Continue
+          {stage.indifference ? "Record DI" : "Continue"}
         </Button>
       </div>
     );
@@ -671,10 +678,6 @@ export function PlayEntry({
 
   if (stage.name === "steal-outcome") {
     const send = (safe: boolean) => {
-      if (stage.indifference && safe) {
-        commitRunner({ kind: "defensive-indifference", from: stage.runners[0] });
-        return;
-      }
       commitRunner({
         kind: "steal",
         attempts: stage.runners.map((from) => ({ from, safe })),

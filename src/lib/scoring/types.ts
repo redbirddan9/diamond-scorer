@@ -120,7 +120,7 @@ export type RunnerInput =
   | { kind: "wild-pitch" }
   | { kind: "passed-ball" }
   | { kind: "balk" }
-  | { kind: "defensive-indifference"; from: Base }
+  | { kind: "defensive-indifference"; froms: Base[] }
   | {
       kind: "pickoff";
       from: Base;

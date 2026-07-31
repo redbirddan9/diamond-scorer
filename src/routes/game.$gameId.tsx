@@ -10,6 +10,7 @@ import { ScorebookGrid } from "@/components/scorebook/ScorebookGrid";
 import { BoxScore, LineScore } from "@/components/scorebook/BoxScore";
 import { AbsPanel } from "@/components/scorebook/AbsPanel";
 import { SubstitutionPanel } from "@/components/scorebook/SubstitutionPanel";
+import { PositionAssign, pendingFielders } from "@/components/scorebook/PositionAssign";
 import { GameSummary } from "@/components/scorebook/GameSummary";
 import { ThemeToggle } from "@/components/scorebook/ThemeToggle";
 import { useGame, newId } from "@/lib/useGame";
@@ -66,6 +67,7 @@ function GameScreen() {
   const [mode, setMode] = useState<Mode>("play");
   const [menuDepth, setMenuDepth] = useState(0);
   const [tab, setTab] = useState<string>("away");
+  const [skipAssign, setSkipAssign] = useState<string[]>([]);
 
   const state = session.state;
   const over = Boolean(state?.over);

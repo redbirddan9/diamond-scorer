@@ -26,6 +26,8 @@ export interface CellModel {
   scored: boolean;
   /** Base at which the batter-runner was caught stealing (2, 3 or 4), if any. */
   caughtStealingAt?: number;
+  /** Base at which the batter-runner was picked off (1, 2 or 3), if any. */
+  pickedOffAt?: number;
   /**
    * Secondary error on a hit: label drawn along the basepath the batter took
    * because of the error (e.g. E9 between 2B and 3B).
@@ -60,6 +62,7 @@ export function batterProgress(plays: LoggedPlay[], index: number) {
   let scored = base === 4;
   let out = batterTo === "out";
   let caughtStealingAt: number | undefined;
+  let pickedOffAt: number | undefined;
   const pathLabels: PathLabel[] = [];
   if (!out && !scored) {
     for (let i = index + 1; i < plays.length; i += 1) {
@@ -70,6 +73,7 @@ export function batterProgress(plays: LoggedPlay[], index: number) {
         if (adv.to === "out") {
           out = true;
           if (adv.reason === "caught-stealing") caughtStealingAt = adv.from + 1;
+          if (adv.reason === "pickoff") pickedOffAt = adv.from;
         }
         else {
           const errorFielders = later.resolution.errorFielders;
@@ -87,7 +91,7 @@ export function batterProgress(plays: LoggedPlay[], index: number) {
       if (out || scored) break;
     }
   }
-  return { base, scored, out, caughtStealingAt, pathLabels };
+  return { base, scored, out, caughtStealingAt, pickedOffAt, pathLabels };
 }
 
 export function buildScorecard(state: GameState, side: TeamSide): RowModel[] {
@@ -144,6 +148,7 @@ export function buildScorecard(state: GameState, side: TeamSide): RowModel[] {
         base: progress.base,
         scored: progress.scored,
         caughtStealingAt: progress.caughtStealingAt,
+        pickedOffAt: progress.pickedOffAt,
         errorAdvance,
         pathLabels: progress.pathLabels,
         outNumber: play.resolution.batterTo === "out" ? play.outsBefore + 1 : undefined,

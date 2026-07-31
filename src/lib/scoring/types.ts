@@ -80,7 +80,18 @@ export type BattedBallType = "ground" | "fly" | "line" | "popup" | "pop-foul" | 
 export type OutTarget = "batter" | Base;
 
 export type BatterInput =
-  | { kind: "hit"; bases: 1 | 2 | 3 | 4; groundRule?: boolean }
+  | {
+      kind: "hit";
+      bases: 1 | 2 | 3 | 4;
+      groundRule?: boolean;
+      /**
+       * Secondary error on a legitimate hit (e.g. double, then the RF boots it
+       * and the batter takes third). The hit still stands as the result.
+       */
+      errorFielders?: number[];
+      /** Extra bases the batter took because of that error. */
+      errorExtraBases?: 1 | 2 | 3;
+    }
   | { kind: "strikeout"; swinging: boolean }
   | {
       kind: "dropped-third";

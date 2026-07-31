@@ -175,6 +175,7 @@ export type AdvanceReason =
   | "pickoff"
   | "caught-stealing"
   | "defensive-indifference"
+  | "catcher-interference"
   | "other";
 
 export interface Advance {

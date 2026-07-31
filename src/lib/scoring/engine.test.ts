@@ -141,8 +141,12 @@ describe("rules engine", () => {
     const state = createInitialState(setup);
     state.outs = 2;
     state.bases[3] = "A9";
+    // Cannot retire a runner who is not on base.
+    const bad: BatterInput = { kind: "batted", batted: "ground", fielders: [4, 3], retired: [1] };
+    expect(validate(state, bad, resolvePlay(state, bad)).length).toBeGreaterThan(0);
+    // A run cannot be forced in when the batter is retired for the third out.
     const resolution = resolvePlay(state, flyOut, { "3": 4 });
-    expect(validate(state, flyOut, resolution).length).toBeGreaterThan(0);
+    expect(resolution.runs).toBe(0);
   });
 
   it("handles stolen bases and caught stealing", () => {

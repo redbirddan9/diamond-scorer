@@ -304,3 +304,67 @@ describe("circled base for outs on the basepaths", () => {
     expect(firstBox(state)).toEqual({ base: 1, label: "PO" });
   });
 });
+
+describe("third-out run scoring (Rule 5.08(a) / 5.09)", () => {
+  /** Runners on first and third with the given number of outs already recorded. */
+  const firstAndThird = (outs: number) => [
+    ...Array.from({ length: outs }, () => strikeout),
+    { kind: "hit", bases: 3 } as BatterInput,
+    { kind: "walk" } as BatterInput,
+  ];
+
+  it("does not score the runner from third when the batter is the third out (4-3)", () => {
+    const state = run([
+      ...firstAndThird(2),
+      { kind: "batted", batted: "ground", fielders: [4, 3], retired: ["batter"] },
+    ]);
+    expect(state.score.away).toBe(0);
+    const last = state.plays[state.plays.length - 1];
+    expect(last.resolution.runs).toBe(0);
+    expect(last.resolution.rbi).toBe(0);
+    expect(last.runsScored).toEqual([]);
+    // Half inning is over.
+    expect(state.half).toBe("bottom");
+    expect(state.outs).toBe(0);
+  });
+
+  it("still scores the runner from third on the same play with only one out", () => {
+    const state = run([
+      ...firstAndThird(1),
+      { kind: "batted", batted: "ground", fielders: [4, 3], retired: ["batter"] },
+    ]);
+    expect(state.score.away).toBe(1);
+    expect(state.outs).toBe(2);
+  });
+
+  it("does not score on a force out for the third out with the bases loaded", () => {
+    const state = run([
+      strikeout,
+      strikeout,
+      single,
+      { kind: "walk" },
+      { kind: "walk" },
+      { kind: "batted", batted: "ground", fielders: [6, 4], retired: [1] },
+    ]);
+    expect(state.score.away).toBe(0);
+    expect(state.plays[state.plays.length - 1].resolution.rbi).toBe(0);
+  });
+
+  it("counts the run on a time play (tag out for the third out)", () => {
+    const events: GameEvent[] = [];
+    let state = createInitialState(setup);
+    for (const input of firstAndThird(2)) {
+      events.push({ id: `t${seq++}`, ts: "", type: "play", batterId: currentBatterId(state), input });
+      state = reduceEvents(setup, events);
+    }
+    events.push({
+      id: `t${seq++}`,
+      ts: "",
+      type: "runner",
+      input: { kind: "steal", attempts: [{ from: 3, safe: true }, { from: 1, safe: false }] },
+    });
+    state = reduceEvents(setup, events);
+    expect(state.score.away).toBe(1);
+    expect(state.half).toBe("bottom");
+  });
+});

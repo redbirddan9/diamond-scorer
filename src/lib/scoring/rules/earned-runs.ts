@@ -21,7 +21,7 @@ import type {
   RunnerInput,
   TeamSide,
 } from "../types";
-import { createInitialState, reduceEvents } from "../engine";
+import { createInitialState, reduceEventsRaw } from "../engine";
 
 /** Transform a single event into its "clean" version for reconstruction. */
 function cleanEvent(ev: GameEvent): GameEvent | null {

@@ -98,6 +98,7 @@ function clone(state: GameState): GameState {
     challenges: { ...state.challenges },
     absLog: [...state.absLog],
     subLog: [...state.subLog],
+    runnerState: { ...state.runnerState },
   };
 }
 

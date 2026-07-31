@@ -178,7 +178,10 @@ type Stage =
   | { name: "pickoff-base" }
   | { name: "pickoff-outcome"; from: Base }
   | { name: "dropped-cause" }
-  | { name: "dropped-outcome"; cause: "wild-pitch" | "passed-ball" | "throw" };
+  | { name: "dropped-outcome"; cause: "wild-pitch" | "passed-ball" | "throw" }
+  | { name: "hit-error-bases" }
+  | { name: "hit-error-fielder"; bases: 1 | 2 | 3 }
+  | { name: "hit-error-extra"; bases: 1 | 2 | 3; fielder: number };
 
 export function PlayEntry({
   bases,
@@ -249,6 +252,9 @@ export function PlayEntry({
           break;
         case "dropped-third":
           setStage({ name: "dropped-cause" });
+          break;
+        case "hit-error":
+          setStage({ name: "hit-error-bases" });
           break;
       }
     },

@@ -199,6 +199,29 @@ function ScoreCell({ cell }: { cell?: CellModel }) {
             )}
           </>
         )}
+        {poCorner && (
+          <>
+            <circle
+              cx={poCorner[0]}
+              cy={poCorner[1]}
+              r="5"
+              className="fill-none stroke-ink"
+              strokeWidth="1.5"
+            />
+            <text
+              x={poCorner[0]}
+              y={poCorner[1]}
+              dx={poCorner[0] < 30 ? -8 : 8}
+              dy={poCorner[1] < 32 ? -4 : 6}
+              textAnchor="middle"
+              className="fill-ink font-mono"
+              fontSize="9"
+              fontWeight="700"
+            >
+              PO
+            </text>
+          </>
+        )}
       </svg>
       <div className="relative flex h-full flex-col items-center justify-center leading-none">
         {marks.above && (

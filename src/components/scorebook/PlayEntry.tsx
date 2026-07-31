@@ -505,10 +505,96 @@ export function PlayEntry({
     );
   }
 
+  if (stage.name === "hit-error-bases") {
+    const hits: { b: 1 | 2 | 3; symbol: string; label: string }[] = [
+      { b: 1, symbol: "1B", label: "Single" },
+      { b: 2, symbol: "2B", label: "Double" },
+      { b: 3, symbol: "3B", label: "Triple" },
+    ];
+    return (
+      <div className="space-y-2">
+        <Header title="Hit + error — the hit" onBack={back} />
+        <div className="grid grid-cols-3 gap-2">
+          {hits.map((h) => (
+            <Button
+              key={h.b}
+              variant="secondary"
+              className="relative h-14 flex-col gap-0"
+              onClick={() => setStage({ name: "hit-error-fielder", bases: h.b })}
+            >
+              <span className="font-mono text-base font-bold leading-none">{h.symbol}</span>
+              <span className="text-[10px] font-normal opacity-80">{h.label}</span>
+              <Hint k={String(h.b)} corner />
+            </Button>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          The hit still counts — the error only adds bases.
+        </p>
+      </div>
+    );
+  }
+
+  if (stage.name === "hit-error-fielder") {
+    return (
+      <div className="space-y-2">
+        <Header title={`${stage.bases}B + error — who erred?`} onBack={back} />
+        <div className="grid grid-cols-5 gap-1.5">
+          {POSITIONS.map((p) => (
+            <Button
+              key={p.n}
+              variant="outline"
+              className="h-11 flex-col gap-0"
+              onClick={() =>
+                setStage({ name: "hit-error-extra", bases: stage.bases, fielder: p.n })
+              }
+            >
+              <span className="font-mono text-lg font-bold leading-none">{p.n}</span>
+              <span className="text-[10px] text-muted-foreground">{p.label}</span>
+            </Button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (stage.name === "hit-error-extra") {
+    const max = 4 - stage.bases;
+    const options = ([1, 2, 3] as const).filter((n) => n <= max);
+    const dest = (n: number) => ["", "1st", "2nd", "3rd", "home"][stage.bases + n];
+    return (
+      <div className="space-y-2">
+        <Header
+          title={`${stage.bases}B, E${stage.fielder} — bases on the error`}
+          onBack={back}
+        />
+        <div className="grid grid-cols-3 gap-2">
+          {options.map((n) => (
+            <Button
+              key={n}
+              className="relative h-14 flex-col gap-0"
+              onClick={() =>
+                commitPlay({
+                  kind: "hit",
+                  bases: stage.bases,
+                  errorFielders: [stage.fielder],
+                  errorExtraBases: n,
+                })
+              }
+            >
+              <span className="font-mono text-base font-bold leading-none">+{n}</span>
+              <span className="text-[10px] font-normal opacity-80">to {dest(n)}</span>
+              <Hint k={String(n)} corner />
+            </Button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   if (stage.name === "retired") {
     const toggle = (t: OutTarget) =>
       setRetired((r) => (r.includes(t) ? r.filter((x) => x !== t) : [...r, t]));
-    void 0;
     return (
       <div className="space-y-2">
         <Header title={`${fielders.join("-")} — who was retired?`} onBack={back} />

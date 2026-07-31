@@ -45,6 +45,8 @@ function chain(fielders: number[]): string {
 }
 
 export interface NotationParts {
+  /** Smaller line above the main mark (FC, DP …). */
+  above?: string;
   /** Large, centered mark. */
   main: string;
   /** Subscript that follows the main mark. */
@@ -103,9 +105,10 @@ export function notationParts(play: LoggedPlay): NotationParts {
     case "E":
       return { main: "E", sub: e.join("") };
     case "FC":
-      return { main: "FC", sub: chain(f) || undefined };
+      // Official result above the defensive sequence.
+      return { above: "FC", main: chain(f) || "FC" };
     case "SF":
-      return { main: "SF", sub: f.length ? String(f[0]) : undefined };
+      return { main: f.length ? `SF-${f[0]}` : "SF" };
     case "SH":
       return { main: "SH", sub: chain(f) || undefined };
     case "DP":
@@ -126,7 +129,8 @@ export function notationFor(play: LoggedPlay): string {
   const p = notationParts(play);
   const rbi = play.resolution.rbi > 0 ? ` ${play.resolution.rbi} RBI` : "";
   const below = p.below ? ` ${p.below}` : "";
-  return `${p.main}${p.sub ?? ""}${below}${rbi}`.trim();
+  const above = p.above ? `${p.above} ` : "";
+  return `${above}${p.main}${p.sub ?? ""}${below}${rbi}`.trim();
 }
 
 export function describePlay(play: LoggedPlay, nameOf: (id: string) => string): string {

@@ -438,7 +438,12 @@ export function applyEvent(prev: GameState, ev: GameEvent): GameState {
   }
 }
 
-export function reduceEvents(setup: GameSetup, events: GameEvent[]): GameState {
+export function reduceEventsRaw(setup: GameSetup, events: GameEvent[]): GameState {
   return events.reduce<GameState>(applyEvent, createInitialState(setup));
+}
+
+export function reduceEvents(setup: GameSetup, events: GameEvent[]): GameState {
+  const raw = reduceEventsRaw(setup, events);
+  return computeEarnedRuns(setup, events, raw);
 }
 

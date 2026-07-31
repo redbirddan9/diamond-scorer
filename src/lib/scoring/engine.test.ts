@@ -136,12 +136,63 @@ describe("rules engine", () => {
     expect(resolvePlay(state, flyOut).uncertain).toEqual(["2"]);
   });
 
-  it("rejects impossible plays", () => {
+  it("wipes the run when the batter makes the third out", () => {
     const state = createInitialState(setup);
     state.outs = 2;
     state.bases[3] = "A9";
     const resolution = resolvePlay(state, flyOut, { "3": 4 });
-    expect(validate(state, flyOut, resolution).length).toBeGreaterThan(0);
+    expect(resolution.runs).toBe(0);
+    expect(resolution.classification).toBe("OUT");
+    expect(validate(state, flyOut, resolution)).toHaveLength(0);
+  });
+
+  it("ends the inning with no run on a 1st-and-3rd, two-out 4-3 groundout", () => {
+    let state = createInitialState(setup);
+    state.outs = 2;
+    state.bases[1] = "A8";
+    state.bases[3] = "A9";
+    const groundout = {
+      kind: "batted" as const,
+      batted: "ground" as const,
+      fielders: [4, 3],
+      retired: ["batter" as const],
+    };
+    const resolution = resolvePlay(state, groundout, { "3": 4 });
+    expect(resolution.runs).toBe(0);
+    state = applyEvent(state, {
+      id: "g1",
+      ts: "",
+      type: "play",
+      batterId: "A1",
+      input: groundout,
+      overrides: { "3": 4 },
+    });
+    expect(state.score.away).toBe(0);
+    expect(state.half).toBe("bottom");
+    expect(state.outs).toBe(0);
+  });
+
+  it("keeps a double a double when a secondary error adds a base", () => {
+    const state = createInitialState(setup);
+    const input = {
+      kind: "hit" as const,
+      bases: 2 as const,
+      secondary: { fielder: 9, runner: "batter" as const },
+    };
+    const resolution = resolvePlay(state, input, {}, "A1");
+    expect(resolution.classification).toBe("2B");
+    expect(resolution.batterTo).toBe(3);
+    expect(resolution.errorFielders).toEqual([9]);
+    expect(resolution.marks).toEqual([{ runnerId: "A1", base: 3, label: "E9" }]);
+  });
+
+  it("advances runners on defensive indifference without crediting a steal", () => {
+    const state = createInitialState(setup);
+    state.bases[1] = "A9";
+    const resolution = resolvePlay(state, { kind: "defensive-indifference", runners: [1] });
+    expect(resolution.classification).toBe("DI");
+    expect(resolution.advances[0].to).toBe(2);
+    expect(resolution.marks[0].label).toBe("DI");
   });
 
   it("handles stolen bases and caught stealing", () => {

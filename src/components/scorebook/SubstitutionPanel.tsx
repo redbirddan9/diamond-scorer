@@ -5,13 +5,14 @@ import { PositionGrid } from "./PositionGrid";
 import { battingSide, fieldingSide } from "@/lib/scoring/engine";
 import type { Base, GameState, SubEvent, TeamSide } from "@/lib/scoring/types";
 
-type Kind = "PH" | "PR" | "P" | "DEF";
+type Kind = "PH" | "PR" | "P" | "DEF" | "POS";
 
 const KINDS: { value: Kind; label: string; hint: string }[] = [
   { value: "PH", label: "Pinch Hitter", hint: "Bats for the current slot" },
   { value: "PR", label: "Pinch Runner", hint: "Replaces a runner on base" },
   { value: "P", label: "Pitching Change", hint: "New pitcher enters" },
   { value: "DEF", label: "Defensive Sub", hint: "Fielding replacement" },
+  { value: "POS", label: "Assign Position", hint: "Give a PH/PR a position" },
 ];
 
 interface Props {
@@ -22,6 +23,7 @@ interface Props {
 
 export function SubstitutionPanel({ state, onSubmit, onCancel }: Props) {
   const [kind, setKind] = useState<Kind | null>(null);
+  const [assignId, setAssignId] = useState<string>("");
   const [name, setName] = useState("");
   const [slot, setSlot] = useState<number | null>(null);
   const [base, setBase] = useState<Base | null>(null);
@@ -30,11 +32,28 @@ export function SubstitutionPanel({ state, onSubmit, onCancel }: Props) {
   const offense = battingSide(state);
   const defense = fieldingSide(state);
   const team: TeamSide = kind === "PH" || kind === "PR" ? offense : defense;
+  const pending = state.lineup[team].filter((id) =>
+    ["PH", "PR"].includes(state.positions[team][id] ?? ""),
+  );
   const order = state.lineup[team];
   const nameOf = (id: string) => state.playerNames[id] ?? id;
   const occupied = ([1, 2, 3] as Base[]).filter((b) => state.bases[b]);
 
   const submit = () => {
+    // Give a pinch hitter/runner their defensive position once the inning ends.
+    if (kind === "POS") {
+      if (!assignId || !position) return;
+      const idx = state.lineup[team].indexOf(assignId);
+      onSubmit({
+        team,
+        kind: "DEF",
+        outPlayerId: assignId,
+        inPlayerId: assignId,
+        slot: idx >= 0 ? idx : undefined,
+        position,
+      });
+      return;
+    }
     if (!kind || !name.trim()) return;
     const inPlayerId = `sub-${Math.random().toString(36).slice(2, 9)}`;
     let outPlayerId = "";
@@ -44,14 +63,15 @@ export function SubstitutionPanel({ state, onSubmit, onCancel }: Props) {
     if (kind === "PH") {
       outSlot = slot ?? state.slot[team] % order.length;
       outPlayerId = order[outSlot];
-      pos = pos || state.positions[team][outPlayerId] || "";
+      // A pinch hitter has no defensive position yet.
+      pos = "PH";
     } else if (kind === "PR") {
       const b = base ?? occupied[0];
       if (!b) return;
       outPlayerId = state.bases[b]!;
       const idx = order.indexOf(outPlayerId);
       if (idx >= 0) outSlot = idx;
-      pos = pos || state.positions[team][outPlayerId] || "";
+      pos = "PR";
     } else if (kind === "P") {
       outPlayerId = state.pitcher[team];
       pos = "P";
@@ -78,7 +98,7 @@ export function SubstitutionPanel({ state, onSubmit, onCancel }: Props) {
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold uppercase tracking-wide">Substitution</h3>
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-5 gap-2">
         {KINDS.map((k) => (
           <Button
             key={k.value}
@@ -102,13 +122,35 @@ export function SubstitutionPanel({ state, onSubmit, onCancel }: Props) {
           <p className="text-xs text-muted-foreground">
             {team === "away" ? state.setup.away.name : state.setup.home.name}
           </p>
-          <Input
+          {kind === "POS" && (
+            <div className="space-y-2">
+              <p className="text-xs uppercase text-muted-foreground">Pinch hitter / runner</p>
+              {pending.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nobody is waiting for a position.</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {pending.map((id) => (
+                    <Button
+                      key={id}
+                      variant={assignId === id ? "default" : "outline"}
+                      className="h-11 truncate text-xs"
+                      onClick={() => setAssignId(id)}
+                    >
+                      {nameOf(id)}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              <PositionGrid value={position} onChange={setPosition} compact />
+            </div>
+          )}
+          {kind !== "POS" && <Input
             className="h-11"
             placeholder="Incoming player name"
             value={name}
             autoFocus
             onChange={(e) => setName(e.target.value)}
-          />
+          />}
 
           {kind === "PH" && (
             <div>
@@ -157,7 +199,7 @@ export function SubstitutionPanel({ state, onSubmit, onCancel }: Props) {
             </div>
           )}
 
-          {(kind === "DEF" || kind === "PH") && (
+          {kind === "DEF" && (
             <div>
               <p className="mb-1 text-xs uppercase text-muted-foreground">Position</p>
               <PositionGrid value={position} onChange={setPosition} compact />
@@ -174,8 +216,12 @@ export function SubstitutionPanel({ state, onSubmit, onCancel }: Props) {
             <Button variant="ghost" className="h-11" onClick={onCancel}>
               Cancel
             </Button>
-            <Button className="h-11 flex-1" onClick={submit} disabled={!name.trim()}>
-              Make substitution
+            <Button
+              className="h-11 flex-1"
+              onClick={submit}
+              disabled={kind === "POS" ? !assignId || !position : !name.trim()}
+            >
+              {kind === "POS" ? "Assign position" : "Make substitution"}
             </Button>
           </div>
         </div>

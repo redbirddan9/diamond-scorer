@@ -7,6 +7,7 @@ import type {
 } from "../types";
 import type { AdvancementResult } from "./advancement";
 
+/** Caught-ball trajectories that can produce a sacrifice fly. */
 const AIR = ["fly", "line", "popup"];
 
 export function classifyBatterPlay(
@@ -19,6 +20,7 @@ export function classifyBatterPlay(
 
   switch (input.kind) {
     case "hit":
+      // A secondary error never downgrades a legitimate hit.
       return input.bases === 4 ? "HR" : input.groundRule ? "2B" : ((`${input.bases}B` as PlayClassification));
     case "strikeout":
     case "dropped-third":
@@ -27,8 +29,6 @@ export function classifyBatterPlay(
       return input.intentional ? "IBB" : "BB";
     case "hbp":
       return "HBP";
-    case "catcher-interference":
-      return "CI";
     case "sac-bunt":
       return adv.outsRecorded >= 2 ? "DP" : "SH";
     case "batted": {

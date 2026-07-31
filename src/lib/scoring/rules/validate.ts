@@ -36,9 +36,9 @@ export function validatePlay(
     }
   }
 
-  const runs = advances.filter((a) => a.to === 4).length + (batterTo === 4 ? 1 : 0);
-  if (batterTo === "out" && state.outs + outsRecorded >= 3 && runs > 0) {
-    errors.push("No run can score when the batter is retired for the third out.");
+  const runnerIds = advances.map((a) => a.runnerId);
+  if (new Set(runnerIds).size !== runnerIds.length) {
+    errors.push("A runner cannot be both safe and out on the same play.");
   }
 
   if (classification === "SF") {
@@ -47,6 +47,9 @@ export function validatePlay(
   }
   if (classification === "TP" && state.outs > 0) {
     errors.push("A triple play is only possible with no outs.");
+  }
+  if (classification === "TP" && advances.length + 1 < 3) {
+    errors.push("A triple play requires enough baserunners.");
   }
   if (rbi > 0 && classification === "E") errors.push("An error cannot produce an RBI.");
 

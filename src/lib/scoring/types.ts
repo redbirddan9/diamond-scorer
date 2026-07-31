@@ -55,6 +55,8 @@ export interface GameSetup {
   trackPitches?: boolean;
   umpires: Umpires;
   innings: number;
+  /** Pitcher decisions assigned by the scorer when the game ends. */
+  decisions?: { win?: string; loss?: string; save?: string };
   away: TeamSetup;
   home: TeamSetup;
 }
@@ -67,8 +69,27 @@ export type BattedBallType = "ground" | "fly" | "line" | "popup" | "bunt";
 /** Who the defense retired on the play. */
 export type OutTarget = "batter" | Base;
 
+/**
+ * A secondary defensive error committed AFTER the primary result is already
+ * established (e.g. a clean double, then the right fielder boots the ball and
+ * the batter takes third). It never changes the primary classification.
+ */
+export interface SecondaryError {
+  /** Position number that committed the error (1-9). */
+  fielder: number;
+  /** Whose advancement the error caused. */
+  runner: RunnerKey;
+  /** Extra bases gained because of the error. Defaults to 1. */
+  bases?: number;
+}
+
 export type BatterInput =
-  | { kind: "hit"; bases: 1 | 2 | 3 | 4; groundRule?: boolean }
+  | {
+      kind: "hit";
+      bases: 1 | 2 | 3 | 4;
+      groundRule?: boolean;
+      secondary?: SecondaryError;
+    }
   | { kind: "strikeout"; swinging: boolean }
   | {
       kind: "dropped-third";
@@ -80,7 +101,6 @@ export type BatterInput =
     }
   | { kind: "walk"; intentional?: boolean }
   | { kind: "hbp" }
-  | { kind: "catcher-interference" }
   | {
       kind: "batted";
       batted: BattedBallType;
@@ -88,7 +108,10 @@ export type BatterInput =
       fielders: number[];
       /** Everyone the defense retired on this continuous play. */
       retired: OutTarget[];
+      /** Caught in foul territory (pop foul). */
+      foul?: boolean;
       errorFielders?: number[];
+      secondary?: SecondaryError;
     }
   | { kind: "sac-bunt"; fielders: number[]; retired?: OutTarget[] };
 
@@ -97,7 +120,7 @@ export type RunnerInput =
   | { kind: "wild-pitch" }
   | { kind: "passed-ball" }
   | { kind: "balk" }
-  | { kind: "defensive-indifference"; from: Base }
+  | { kind: "defensive-indifference"; runners: Base[] }
   | {
       kind: "pickoff";
       from: Base;
@@ -121,7 +144,6 @@ export type PlayClassification =
   | "BB"
   | "IBB"
   | "HBP"
-  | "CI"
   | "E"
   | "FC"
   | "SF"
@@ -159,6 +181,20 @@ export interface Advance {
   from: Base;
   to: Destination;
   reason: AdvanceReason;
+  /** Position number charged with an error that caused this movement. */
+  errorFielder?: number;
+}
+
+/**
+ * A notation that belongs on a basepath of the scorecard diamond (SB, CS, WP,
+ * PB, E9 …). `base` is the base the runner was heading for (1-4).
+ */
+export interface BasepathMark {
+  runnerId: string;
+  base: number;
+  label: string;
+  /** Runner was retired attempting that base — circle the corner. */
+  out?: boolean;
 }
 
 /** The full, official outcome of one play as decided by the rules layer. */
@@ -178,6 +214,8 @@ export interface PlayResolution {
   isPlateAppearance: boolean;
   isStrikeout: boolean;
   isWalk: boolean;
+  /** Basepath notations produced by this play. */
+  marks: BasepathMark[];
   /** Runner keys whose destination the engine could not infer with certainty. */
   uncertain: RunnerKey[];
 }
@@ -267,6 +305,8 @@ export interface SubRecord {
   position?: string;
   battingTeam: TeamSide;
   battingSlot: number;
+  /** Id of the last play recorded before this substitution, if any. */
+  afterPlayId: string | null;
 }
 
 /** A play, with the resolved official result and its game context. */

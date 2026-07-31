@@ -330,7 +330,10 @@ export interface LoggedPlay {
   slot: number | null;
   pitcherId: string;
   outsBefore: number;
+  /** Runner ids that scored on this play. */
   runsScored: string[];
+  /** Runner ids that scored but were tainted by error/passed ball/catcher's interference. */
+  taintedRuns: string[];
   pitchCount: number;
 }
 

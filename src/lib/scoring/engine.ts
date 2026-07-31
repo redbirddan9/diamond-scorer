@@ -7,8 +7,9 @@
  */
 import type {
   AbsEvent,
-  Advance,
+  AdvanceReason,
   Base,
+  BatterInput,
   Destination,
   GameEvent,
   GameSetup,

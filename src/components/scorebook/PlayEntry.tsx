@@ -316,6 +316,11 @@ export function PlayEntry({
         commitPlay({ kind: "batted", batted, fielders: picked, retired: ["batter"] });
         return;
       }
+      // Caught in the air: the batter is out; runners are handled in review.
+      if (batted !== "ground" && batted !== "bunt") {
+        commitPlay({ kind: "batted", batted, fielders: picked, retired: ["batter"] });
+        return;
+      }
       // Ground balls: the fielding sequence tells us who was retired.
       const inferred = inferRetired(bases, batted, picked);
       if (inferred) {

@@ -35,7 +35,8 @@ type Flow =
   | { kind: "sac-bunt" }
   | { kind: "steal" }
   | { kind: "pickoff" }
-  | { kind: "dropped-third" };
+  | { kind: "dropped-third" }
+  | { kind: "hit-error" };
 
 const BATTED: { key: BattedBallType; hot: string; symbol: string; label: string }[] = [
   { key: "ground", hot: "g", symbol: "GO", label: "Ground-out" },
@@ -61,6 +62,13 @@ export const MENU: Node[] = [
         symbol: "GRD",
         label: "Ground Rule 2B",
         batter: { kind: "hit", bases: 2, groundRule: true },
+      },
+      {
+        key: "hit-e",
+        hot: "e",
+        symbol: "H+E",
+        label: "Hit + Error",
+        flow: { kind: "hit-error" },
       },
     ],
   },

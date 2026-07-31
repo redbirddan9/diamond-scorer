@@ -93,7 +93,8 @@ function NameBox({ row }: { row: RowModel }) {
 
 function ScoreCell({ cell }: { cell?: CellModel }) {
   if (!cell) return <div className="h-full w-full" />;
-  const { play, base, scored, caughtStealingAt, errorAdvance, outNumber, pitcherChange } = cell;
+  const { play, base, scored, caughtStealingAt, errorAdvance, pathLabels, outNumber, pitcherChange } =
+    cell;
   const marks = notationParts(play);
   // Diamond corners: home, 1B, 2B, 3B.
   const corners: Record<number, [number, number]> = {
@@ -113,6 +114,14 @@ function ScoreCell({ cell }: { cell?: CellModel }) {
   const eaTo = errorAdvance ? corners[errorAdvance.to] : undefined;
   const eaMid =
     eaFrom && eaTo ? [(eaFrom[0] + eaTo[0]) / 2, (eaFrom[1] + eaTo[1]) / 2] : undefined;
+  // Reason labels (SB, WP, PB, BK, DI, E#) along the basepath each was taken on.
+  const reasonMarks = (pathLabels ?? []).map((p, i) => {
+    const a = corners[p.from];
+    const b = corners[p.to];
+    if (!a || !b) return null;
+    const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    return { key: `${i}-${p.label}`, x: mid[0], y: mid[1], label: p.label };
+  });
 
   return (
     <div className="relative h-full w-full">
@@ -139,6 +148,24 @@ function ScoreCell({ cell }: { cell?: CellModel }) {
           >
             {errorAdvance.label}
           </text>
+        )}
+        {reasonMarks.map(
+          (m) =>
+            m && (
+              <text
+                key={m.key}
+                x={m.x}
+                y={m.y}
+                dx={m.x < 30 ? -3 : 3}
+                dy={m.y < 32 ? -2 : 4}
+                textAnchor="middle"
+                className="fill-ink font-mono"
+                fontSize="8"
+                fontWeight="700"
+              >
+                {m.label}
+              </text>
+            ),
         )}
         {csCorner && csFrom && (
           <>

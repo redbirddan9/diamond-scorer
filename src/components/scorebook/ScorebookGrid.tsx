@@ -103,6 +103,15 @@ function ScoreCell({ cell }: { cell?: CellModel }) {
     3: [10, 32],
     4: [30, 52],
   };
+  // Push a midpoint away from the diamond center so labels sit outside the lines.
+  const pushOut = (x: number, y: number, distance: number) => {
+    const dx = x - 30;
+    const dy = y - 32;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len === 0) return { x, y };
+    const scale = distance / len;
+    return { x: x + dx * scale, y: y + dy * scale };
+  };
   // Any out on the basepaths: circle the corner where the runner was retired.
   const outCorner = outOnBases ? corners[outOnBases.base] : undefined;
   const outFrom =

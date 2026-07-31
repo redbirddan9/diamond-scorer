@@ -195,7 +195,8 @@ export interface PlayResolution {
   runs: number;
   fielders: number[];
   errorFielders: number[];
-  earnedRuns: boolean;
+  /** Number of runs that are earned (computed by reconstruction). */
+  earnedRuns: number;
   isHit: boolean;
   isAtBat: boolean;
   isPlateAppearance: boolean;

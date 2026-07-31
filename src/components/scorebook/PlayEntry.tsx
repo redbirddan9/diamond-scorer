@@ -595,6 +595,21 @@ export function PlayEntry({
   if (stage.name === "retired") {
     const toggle = (t: OutTarget) =>
       setRetired((r) => (r.includes(t) ? r.filter((x) => x !== t) : [...r, t]));
+    const chain = stage.fielders.length === 1 ? `${stage.fielders[0]}u` : stage.fielders.join("-");
+    // Inferred official result, mirroring the rules layer: batter safe while
+    // another runner is retired is a fielder's choice (two outs, a DP).
+    const outs = retired.length;
+    const batterSafe = !retired.includes("batter");
+    const inferred =
+      outs === 0
+        ? "No out recorded"
+        : outs >= 3
+          ? `TP ${chain}`
+          : outs === 2
+            ? `DP ${chain}`
+            : batterSafe
+              ? `FC ${chain}`
+              : chain;
     return (
       <div className="space-y-2">
         <Header title={`${fielders.join("-")} — who was retired?`} onBack={back} />
@@ -620,6 +635,10 @@ export function PlayEntry({
             </Button>
           ))}
         </div>
+        <p className="text-center font-mono text-sm">
+          <span className="text-muted-foreground">Scores as </span>
+          <span className="font-bold">{inferred}</span>
+        </p>
         <Button
           className="h-12 w-full text-base"
           onClick={() =>

@@ -301,8 +301,17 @@ export interface SubRecord {
   position?: string;
   battingTeam: TeamSide;
   battingSlot: number;
-  /** Number of plays already logged when the substitution happened. */
+/** Number of plays already logged when the substitution happened. */
   playIndex?: number;
+}
+
+/** Per-runner bookkeeping for earned/unearned run reconstruction and inherited runners. */
+export interface RunnerState {
+  runnerId: string;
+  /** Pitcher who originally allowed this runner to reach base. */
+  responsiblePitcherId: string;
+  /** True if the runner reached or advanced on an error, passed ball, or catcher's interference. */
+  tainted: boolean;
 }
 
 /** A play, with the resolved official result and its game context. */

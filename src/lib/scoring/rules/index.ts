@@ -112,7 +112,7 @@ function resolveRunner(
     runs: adv.advances.filter((a) => a.to === 4).length,
     fielders: (input.kind === "pickoff" ? input.fielders : undefined) ?? [],
     errorFielders,
-    earnedRuns: errorFielders.length === 0,
+    earnedRuns: 0,
     isHit: false,
     isAtBat: false,
     isPlateAppearance: false,

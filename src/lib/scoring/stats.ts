@@ -145,20 +145,23 @@ export function battingStats(state: GameState, side: TeamSide): BattingLine[] {
 
 export function pitchingStats(state: GameState, side: TeamSide): PitchingLine[] {
   const lines = new Map<string, PitchingLine>();
-  const get = (id: string) => {
+  const firstAppearance = new Map<string, number>();
+  const get = (id: string, index?: number) => {
     let line = lines.get(id);
     if (!line) {
       line = emptyPitching(id);
       lines.set(id, line);
     }
+    if (index !== undefined && !firstAppearance.has(id)) {
+      firstAppearance.set(id, index);
+    }
     return line;
   };
-  get(state.pitcher[side]);
 
-  for (const play of state.plays) {
-    if (play.battingTeam === side) continue;
+  state.plays.forEach((play, index) => {
+    if (play.battingTeam === side) return;
     const res = play.resolution;
-    const p = get(play.pitcherId);
+    const p = get(play.pitcherId, index);
     if (res.isPlateAppearance) p.bf += 1;
     if (res.isHit) p.h += 1;
     if (res.classification === "HR") p.hr += 1;
@@ -168,7 +171,10 @@ export function pitchingStats(state: GameState, side: TeamSide): PitchingLine[] 
     p.r += play.runsScored.length;
     if (res.earnedRuns) p.er += play.runsScored.length;
     p.outs += res.outsRecorded;
-  }
+  });
+
+  // Ensure the current pitcher is listed even if no plays have been logged yet.
+  get(state.pitcher[side]);
 
   for (const line of lines.values()) {
     line.pitches = state.pitchesThrown[line.playerId] ?? 0;
@@ -177,7 +183,12 @@ export function pitchingStats(state: GameState, side: TeamSide): PitchingLine[] 
     line.era = innings > 0 ? (line.er * 9) / innings : 0;
     line.whip = innings > 0 ? (line.bb + line.h) / innings : 0;
   }
-  return [...lines.values()];
+
+  return [...lines.values()].sort((a, b) => {
+    const aIdx = firstAppearance.get(a.playerId) ?? Infinity;
+    const bIdx = firstAppearance.get(b.playerId) ?? Infinity;
+    return aIdx - bIdx;
+  });
 }
 
 export function fieldingStats(state: GameState, side: TeamSide): FieldingLine[] {

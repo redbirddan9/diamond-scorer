@@ -2,7 +2,22 @@
  * Derived model for the paper scorecard: what each cell should draw, how far
  * each batter eventually got, substitution annotations and per-row totals.
  */
-import type { GameState, LoggedPlay, TeamSide } from "./types";
+import type { AdvanceReason, GameState, LoggedPlay, TeamSide } from "./types";
+
+/** Label drawn along a basepath segment (2 = 1B→2B, etc.). */
+export interface PathLabel {
+  from: number;
+  to: number;
+  label: string;
+}
+
+const REASON_LABEL: Partial<Record<AdvanceReason, string>> = {
+  "stolen-base": "SB",
+  "wild-pitch": "WP",
+  "passed-ball": "PB",
+  balk: "BK",
+  "defensive-indifference": "DI",
+};
 
 export interface CellModel {
   play: LoggedPlay;
@@ -16,6 +31,8 @@ export interface CellModel {
    * because of the error (e.g. E9 between 2B and 3B).
    */
   errorAdvance?: { from: number; to: number; label: string };
+  /** Reasons (SB, WP, PB, BK, E#, DI) for each non-hit advance of this batter. */
+  pathLabels: PathLabel[];
   /** Which out of the inning this batter was, if retired at the plate. */
   outNumber?: number;
   /** A pitching change happened before this plate appearance. */
@@ -43,6 +60,7 @@ export function batterProgress(plays: LoggedPlay[], index: number) {
   let scored = base === 4;
   let out = batterTo === "out";
   let caughtStealingAt: number | undefined;
+  const pathLabels: PathLabel[] = [];
   if (!out && !scored) {
     for (let i = index + 1; i < plays.length; i += 1) {
       const later = plays[i];
@@ -53,15 +71,23 @@ export function batterProgress(plays: LoggedPlay[], index: number) {
           out = true;
           if (adv.reason === "caught-stealing") caughtStealingAt = adv.from + 1;
         }
-        else if (adv.to === 4) {
+        else {
+          const errorFielders = later.resolution.errorFielders;
+          const label =
+            adv.reason === "error" && errorFielders.length
+              ? `E${errorFielders.join("")}`
+              : REASON_LABEL[adv.reason];
+          if (label) pathLabels.push({ from: adv.from, to: adv.to, label });
+        }
+        if (adv.to === 4) {
           base = 4;
           scored = true;
-        } else base = Math.max(base, adv.to);
+        } else if (adv.to !== "out") base = Math.max(base, adv.to);
       }
       if (out || scored) break;
     }
   }
-  return { base, scored, out, caughtStealingAt };
+  return { base, scored, out, caughtStealingAt, pathLabels };
 }
 
 export function buildScorecard(state: GameState, side: TeamSide): RowModel[] {
@@ -119,6 +145,7 @@ export function buildScorecard(state: GameState, side: TeamSide): RowModel[] {
         scored: progress.scored,
         caughtStealingAt: progress.caughtStealingAt,
         errorAdvance,
+        pathLabels: progress.pathLabels,
         outNumber: play.resolution.batterTo === "out" ? play.outsBefore + 1 : undefined,
         pitcherChange,
       };

@@ -180,6 +180,9 @@ function GameScreen() {
   const offense = battingSide(state);
   const nameOf = (id: string) => state.playerNames[id] ?? id;
   const activeSlot = state.slot[offense] % Math.max(state.lineup[offense].length, 1);
+  // Pinch hitters/runners pick a fielding position once their half inning ends.
+  const assignTarget =
+    pendingFielders(state, defense).find((p) => !skipAssign.includes(p.playerId)) ?? null;
 
   const finalize = () => {
     if (!pending) return;

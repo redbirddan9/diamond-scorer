@@ -1,41 +1,33 @@
-## What's wrong today
+## Goal
 
-Verified in the code: on a batted ball with anyone on base, `PlayEntry` always stops at a "who was retired?" step with the batter pre-selected (`src/components/scorebook/PlayEntry.tsx`). Nothing reads the fielder chain, so:
+Today only caught stealing and pickoffs draw a circle at the base corner. Extend that to **every out made on the basepaths** — forced runner on a double play, the retired runner on a fielder's choice, tag outs, plus the existing CS and PO — so the circle always appears in the retired runner's own box, at the corner where he was put out. Empty circle, no out number inside. Batter-runners retired going to first are unchanged (notation only).
 
-- `5-3` with a runner on first forces you to answer an obvious question (the throw went to first — the batter is out).
-- If you tap the 1st-base runner without deselecting the batter you get two outs and `DP`, which is why FC never appeared.
+## How it works
 
-The rules layer itself is fine: given `retired: [1]` with the batter safe, `resolvePlay` already returns `FC` and `notationParts` returns `{ above: "FC", main: "5-4" }`. The bug is that the UI never sends that input.
+The engine already records every runner retired as an advance with `to: "out"` and a reason (`force-out`, `tag-out`, `caught-stealing`, `pickoff`). What's missing is a single derived "put-out base" for each of those, and rendering for reasons other than CS/PO.
 
-## The inference rule
-
-The last fielder in the chain tells you which base the ball was thrown to, and the situation tells you who could be retired there:
+Base where the out is drawn:
 
 ```text
-last fielder   base covered   who is retired there
-3 (or 1u/3u)   first          the batter
-4 or 6         second         runner from first (force)
-5              third          runner from second (force, needs 1st also occupied)
-2              home           runner from third (force, bases loaded)
+force-out       -> from + 1   (runner on 1B forced at 2B)
+tag-out         -> from + 1   (retired trying for the next base)
+caught-stealing -> from + 1   (unchanged)
+pickoff         -> from       (unchanged, out at the base he occupied)
 ```
 
-Applied to ground balls / bunts:
+## Changes
 
-- `5-3`, runner on first → batter out at first. Unforced runner on first advances to second (routine). No FC, no prompt. Scores `5-3`.
-- `5-4`, runner on first → force at second, batter safe → `FC 5-4`, one out, batter on first. No prompt.
-- `6-4-3` or `5-4-3`, runner on first → put-out at second *and* at first → `DP`, two outs. No prompt.
-- `4-6-2-5`-style oddities, or a chain whose ending base has no eligible runner → still ambiguous, so the picker opens as it does now (with nothing pre-selected).
+**`src/lib/scoring/scorecard.ts`**
+- Replace the two narrow fields `caughtStealingAt` / `pickedOffAt` on `CellModel` with one `outOnBases?: { base: number; label?: string }`, computed in `batterProgress` for any advance where `to === "out"` and the runner is this box's batter. `label` is `"CS"` for caught stealing, `"PO"` for a pickoff, and omitted for force and tag outs (the batter's own box already shows DP / FC / the fielder chain).
+- Keep the existing behaviour of stopping the progress scan once the runner is out or scores, and keep the basepath-reason labels (SB, WP, PB, BK, DI, E#) exactly as they are.
 
-Caught balls in the air (pop/line/pop foul) keep today's behavior: the batter is out, runners may tag up, and the review panel handles uncertain runners.
+**`src/components/scorebook/ScorebookGrid.tsx`**
+- Draw one shared marker from `outOnBases`: the short basepath line into that corner (as CS does today), an empty circle at the corner, and the optional CS/PO text beside it. This removes the duplicated CS and PO blocks.
+- Circle radius, stroke weight and the 800x480-legible font sizes stay as they are.
 
-## Implementation
-
-1. New pure helper `inferRetired(state, batted, fielders)` in `src/lib/scoring/rules/` (own module, exported through `rules/index.ts`): returns either a confident `OutTarget[]` per the table above, or `null` when the chain can't be read.
-2. `PlayEntry.finishFielders` calls it for the ground/bunt out flow: if it returns a list, commit `{ kind: "batted", batted, fielders, retired }` straight away — no extra tap. If it returns `null`, open the existing retired picker with `retired` starting empty and "Record Play" disabled until at least one out is selected.
-3. Keep a manual escape hatch: an "Adjust outs" button on the confirmation-free path is not needed since Undo exists, but the retired picker stays reachable for ambiguous chains and keeps its live "Scores as FC 5-4 / DP 5-4-3" preview.
-4. No changes to `classify.ts`, `advancement.ts`, `rbi.ts`, or `notation.ts` — FC/DP/TP detection stays the single source of truth.
+**`src/lib/scoring/engine.test.ts`**
+- Add cases asserting the circled base for: runner on 1B forced at 2B on a `6-4-3` double play, the retired runner on a fielder's choice (`5-4`), a caught stealing, and a pickoff.
 
 ## Verification
 
-- Unit tests in `src/lib/scoring/engine.test.ts` for the four cases above: `5-3` with runner on first → `OUT`, runner ends on second; `5-4` → `FC`, batter on first; `6-4-3` → `DP`; empty chain-target case → ambiguous.
-- Then drive the running app: runner on first, record ground out `5-4`, and screenshot the scorecard cell to confirm `FC` renders above `5-4` and is legible at 800x480; bump the `above` label size in `ScorebookGrid.tsx` only if it's too small.
+Run the unit tests and typecheck, then score a live double play and a fielder's choice in the preview and screenshot the grid to confirm the circle lands on the correct corner of the retired runner's box and doesn't collide with the play notation.

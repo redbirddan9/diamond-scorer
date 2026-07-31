@@ -70,6 +70,8 @@ export function ReviewPanel({
     outsBefore: state.outs,
     runsScored: [],
     taintedRuns: [],
+    earnedRunIds: [],
+    runResponsibility: {},
     pitchCount: 0,
   });
 

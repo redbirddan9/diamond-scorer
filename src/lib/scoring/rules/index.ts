@@ -57,7 +57,9 @@ function resolveBatter(
   const runs = adv.advances.filter((a) => a.to === 4).length + (adv.batterTo === 4 ? 1 : 0);
 
   const errorFielders =
-    (input.kind === "batted" || input.kind === "dropped-third" ? input.errorFielders : undefined) ?? [];
+    (input.kind === "batted" || input.kind === "dropped-third" || input.kind === "hit"
+      ? input.errorFielders
+      : undefined) ?? [];
   const fielders =
     input.kind === "batted" || input.kind === "sac-bunt" || input.kind === "dropped-third"
       ? (input.fielders ?? [])
@@ -82,7 +84,8 @@ function resolveBatter(
     runs,
     fielders,
     errorFielders,
-    earnedRuns: errorFielders.length === 0,
+    // A secondary error on a legitimate hit does not unearn the hit's runs.
+    earnedRuns: errorFielders.length === 0 || input.kind === "hit",
     isHit,
     isAtBat: !noAtBat,
     isPlateAppearance: true,

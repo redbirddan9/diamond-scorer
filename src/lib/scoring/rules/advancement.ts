@@ -28,6 +28,15 @@ type Overrides = Partial<Record<RunnerKey, Destination>>;
 
 const AIR: string[] = ["fly", "line", "popup", "pop-foul"];
 
+/**
+ * Bases a hit is worth, including any bases taken on a secondary error.
+ * The hit itself is unchanged — the error only adds advancement.
+ */
+export function hitTotalBases(input: Extract<BatterInput, { kind: "hit" }>): number {
+  const extra = input.errorFielders?.length ? (input.errorExtraBases ?? 1) : 0;
+  return Math.min(input.bases + extra, 4);
+}
+
 function retiredTargets(input: BatterInput): OutTarget[] {
   if (input.kind === "batted") return input.retired;
   if (input.kind === "sac-bunt") return input.retired ?? ["batter"];
@@ -60,7 +69,7 @@ function defaultBatterTo(input: BatterInput, retired: OutTarget[]): Destination 
   if (retired.includes("batter")) return "out";
   switch (input.kind) {
     case "hit":
-      return input.bases as Destination;
+      return hitTotalBases(input) as Destination;
     case "walk":
     case "hbp":
     case "catcher-interference":
@@ -92,7 +101,8 @@ export function resolveRunnerAdvancement(
 
   const isAir = input.kind === "batted" && AIR.includes(input.batted);
   const hasError = Boolean(
-    (input.kind === "batted" || input.kind === "dropped-third") && input.errorFielders?.length,
+    (input.kind === "batted" || input.kind === "dropped-third" || input.kind === "hit") &&
+      input.errorFielders?.length,
   );
 
   const advances: Advance[] = [];
@@ -113,9 +123,10 @@ export function resolveRunnerAdvancement(
 
     switch (input.kind) {
       case "hit": {
-        to = advanceBy(from, input.bases);
+        to = advanceBy(from, hitTotalBases(input));
         // Hits use standard base-for-base advancement; no scorer input needed.
-        certain = true;
+        // A secondary error, though, is a judgement call on every runner.
+        certain = !input.errorFielders?.length;
         break;
       }
       case "walk":

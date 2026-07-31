@@ -93,7 +93,7 @@ function NameBox({ row }: { row: RowModel }) {
 
 function ScoreCell({ cell }: { cell?: CellModel }) {
   if (!cell) return <div className="h-full w-full" />;
-  const { play, base, scored, caughtStealingAt, outNumber, pitcherChange } = cell;
+  const { play, base, scored, caughtStealingAt, errorAdvance, outNumber, pitcherChange } = cell;
   const marks = notationParts(play);
   // Diamond corners: home, 1B, 2B, 3B.
   const corners: Record<number, [number, number]> = {
@@ -108,6 +108,11 @@ function ScoreCell({ cell }: { cell?: CellModel }) {
     csCorner && csFrom
       ? [(csCorner[0] + csFrom[0]) / 2, (csCorner[1] + csFrom[1]) / 2]
       : undefined;
+  // Secondary error on a hit: label the basepath the batter took on the error.
+  const eaFrom = errorAdvance ? corners[errorAdvance.from] : undefined;
+  const eaTo = errorAdvance ? corners[errorAdvance.to] : undefined;
+  const eaMid =
+    eaFrom && eaTo ? [(eaFrom[0] + eaTo[0]) / 2, (eaFrom[1] + eaTo[1]) / 2] : undefined;
 
   return (
     <div className="relative h-full w-full">
@@ -121,6 +126,20 @@ function ScoreCell({ cell }: { cell?: CellModel }) {
         {base >= 3 && <path d="M30 12 L10 32" className="stroke-ink" strokeWidth="2.5" fill="none" />}
         {base >= 4 && <path d="M10 32 L30 52" className="stroke-ink" strokeWidth="2.5" fill="none" />}
         {pitcherChange && <path d="M60 60 L60 44 L44 60 Z" className="fill-ink" />}
+        {errorAdvance && eaMid && (
+          <text
+            x={eaMid[0]}
+            y={eaMid[1]}
+            dx={eaMid[0] < 30 ? -3 : 3}
+            dy={eaMid[1] < 32 ? -2 : 4}
+            textAnchor="middle"
+            className="fill-ink font-mono"
+            fontSize="8"
+            fontWeight="700"
+          >
+            {errorAdvance.label}
+          </text>
+        )}
         {csCorner && csFrom && (
           <>
             <path

@@ -24,10 +24,11 @@ export interface CellModel {
   /** Furthest base reached by the batter in that inning (0-4). */
   base: number;
   scored: boolean;
-  /** Base at which the batter-runner was caught stealing (2, 3 or 4), if any. */
-  caughtStealingAt?: number;
-  /** Base at which the batter-runner was picked off (1, 2 or 3), if any. */
-  pickedOffAt?: number;
+  /**
+   * Out made on the basepaths: the base corner where this runner was retired
+   * (force out, tag out, caught stealing, pickoff) plus an optional label.
+   */
+  outOnBases?: { base: number; label?: string };
   /**
    * Secondary error on a hit: label drawn along the basepath the batter took
    * because of the error (e.g. E9 between 2B and 3B).
@@ -61,8 +62,7 @@ export function batterProgress(plays: LoggedPlay[], index: number) {
   let base = batterTo === "out" || batterTo === null ? 0 : batterTo === 4 ? 4 : Number(batterTo);
   let scored = base === 4;
   let out = batterTo === "out";
-  let caughtStealingAt: number | undefined;
-  let pickedOffAt: number | undefined;
+  let outOnBases: { base: number; label?: string } | undefined;
   const pathLabels: PathLabel[] = [];
   if (!out && !scored) {
     for (let i = index + 1; i < plays.length; i += 1) {
@@ -72,8 +72,11 @@ export function batterProgress(plays: LoggedPlay[], index: number) {
         if (adv.runnerId !== play.batterId) continue;
         if (adv.to === "out") {
           out = true;
-          if (adv.reason === "caught-stealing") caughtStealingAt = adv.from + 1;
-          if (adv.reason === "pickoff") pickedOffAt = adv.from;
+          if (adv.reason === "pickoff") outOnBases = { base: adv.from, label: "PO" };
+          else if (adv.reason === "caught-stealing")
+            outOnBases = { base: adv.from + 1, label: "CS" };
+          else if (adv.reason === "force-out" || adv.reason === "tag-out")
+            outOnBases = { base: adv.from + 1 };
         }
         else {
           const errorFielders = later.resolution.errorFielders;
@@ -91,7 +94,7 @@ export function batterProgress(plays: LoggedPlay[], index: number) {
       if (out || scored) break;
     }
   }
-  return { base, scored, out, caughtStealingAt, pickedOffAt, pathLabels };
+  return { base, scored, out, outOnBases, pathLabels };
 }
 
 export function buildScorecard(state: GameState, side: TeamSide): RowModel[] {
@@ -147,8 +150,7 @@ export function buildScorecard(state: GameState, side: TeamSide): RowModel[] {
         play,
         base: progress.base,
         scored: progress.scored,
-        caughtStealingAt: progress.caughtStealingAt,
-        pickedOffAt: progress.pickedOffAt,
+        outOnBases: progress.outOnBases,
         errorAdvance,
         pathLabels: progress.pathLabels,
         outNumber: play.resolution.batterTo === "out" ? play.outsBefore + 1 : undefined,

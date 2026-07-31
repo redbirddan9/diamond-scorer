@@ -93,7 +93,7 @@ function NameBox({ row }: { row: RowModel }) {
 
 function ScoreCell({ cell }: { cell?: CellModel }) {
   if (!cell) return <div className="h-full w-full" />;
-  const { play, base, scored, caughtStealingAt, pickedOffAt, errorAdvance, pathLabels, outNumber, pitcherChange } =
+  const { play, base, scored, outOnBases, errorAdvance, pathLabels, outNumber, pitcherChange } =
     cell;
   const marks = notationParts(play);
   // Diamond corners: home, 1B, 2B, 3B.
@@ -103,12 +103,13 @@ function ScoreCell({ cell }: { cell?: CellModel }) {
     3: [10, 32],
     4: [30, 52],
   };
-  const csCorner = caughtStealingAt ? corners[caughtStealingAt] : undefined;
-  const poCorner = pickedOffAt ? corners[pickedOffAt] : undefined;
-  const csFrom = caughtStealingAt ? corners[caughtStealingAt - 1] ?? corners[4] : undefined;
-  const csMid =
-    csCorner && csFrom
-      ? [(csCorner[0] + csFrom[0]) / 2, (csCorner[1] + csFrom[1]) / 2]
+  // Any out on the basepaths: circle the corner where the runner was retired.
+  const outCorner = outOnBases ? corners[outOnBases.base] : undefined;
+  const outFrom =
+    outOnBases && outOnBases.base > 1 ? corners[outOnBases.base - 1] : undefined;
+  const outMid =
+    outCorner && outFrom
+      ? [(outCorner[0] + outFrom[0]) / 2, (outCorner[1] + outFrom[1]) / 2]
       : undefined;
   // Secondary error on a hit: label the basepath the batter took on the error.
   const eaFrom = errorAdvance ? corners[errorAdvance.from] : undefined;
@@ -168,58 +169,51 @@ function ScoreCell({ cell }: { cell?: CellModel }) {
               </text>
             ),
         )}
-        {csCorner && csFrom && (
+        {outCorner && (
           <>
-            <path
-              d={`M${csFrom[0]} ${csFrom[1]} L${csCorner[0]} ${csCorner[1]}`}
-              className="stroke-ink"
-              strokeWidth="1.5"
-              fill="none"
-            />
-            <circle
-              cx={csCorner[0]}
-              cy={csCorner[1]}
-              r="5"
-              className="fill-none stroke-ink"
-              strokeWidth="1.5"
-            />
-            {csMid && (
-              <text
-                x={csMid[0]}
-                y={csMid[1]}
-                dx="-1"
-                dy="-2"
-                textAnchor="middle"
-                className="fill-ink font-mono"
-                fontSize="9"
-                fontWeight="700"
-              >
-                CS
-              </text>
+            {outFrom && outOnBases?.label !== "PO" && (
+              <path
+                d={`M${outFrom[0]} ${outFrom[1]} L${outCorner[0]} ${outCorner[1]}`}
+                className="stroke-ink"
+                strokeWidth="1.5"
+                fill="none"
+              />
             )}
-          </>
-        )}
-        {poCorner && (
-          <>
             <circle
-              cx={poCorner[0]}
-              cy={poCorner[1]}
+              cx={outCorner[0]}
+              cy={outCorner[1]}
               r="5"
               className="fill-none stroke-ink"
               strokeWidth="1.5"
             />
-            <text
-              x={poCorner[0]}
-              y={poCorner[1]}
-              dx={poCorner[0] < 30 ? -8 : 8}
-              dy={poCorner[1] < 32 ? -4 : 6}
-              textAnchor="middle"
-              className="fill-ink font-mono"
-              fontSize="9"
-              fontWeight="700"
-            >
-              PO
-            </text>
+            {outOnBases?.label &&
+              (outMid && outOnBases.label !== "PO" ? (
+                <text
+                  x={outMid[0]}
+                  y={outMid[1]}
+                  dx="-1"
+                  dy="-2"
+                  textAnchor="middle"
+                  className="fill-ink font-mono"
+                  fontSize="9"
+                  fontWeight="700"
+                >
+                  {outOnBases.label}
+                </text>
+              ) : (
+                <text
+                  x={outCorner[0]}
+                  y={outCorner[1]}
+                  dx={outCorner[0] < 30 ? -8 : 8}
+                  dy={outCorner[1] < 32 ? -4 : 6}
+                  textAnchor="middle"
+                  className="fill-ink font-mono"
+                  fontSize="9"
+                  fontWeight="700"
+                >
+                  {outOnBases.label}
+                </text>
+              ))}
           </>
         )}
       </svg>

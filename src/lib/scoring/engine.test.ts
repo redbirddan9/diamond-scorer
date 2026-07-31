@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createInitialState, currentBatterId, reduceEvents } from "./engine";
+import { buildScorecard } from "./scorecard";
 import { inferRetired, resolvePlay, validate } from "./rules";
-import type { BatterInput, GameEvent, GameSetup } from "./types";
+import type { BatterInput, GameEvent, GameSetup, RunnerInput } from "./types";
 
 function team(prefix: string): GameSetup["home"] {
   const players = Array.from({ length: 9 }, (_, i) => ({
@@ -249,5 +250,57 @@ describe("out inference from the fielding sequence", () => {
     const empty = createInitialState(setup);
     expect(inferRetired(empty.bases, "ground", [6, 4])).toBeNull();
     expect(inferRetired(empty.bases, "fly", [9])).toBeNull();
+  });
+});
+
+describe("circled base for outs on the basepaths", () => {
+  function runAny(inputs: (BatterInput | RunnerInput)[]) {
+    const events: GameEvent[] = [];
+    let state = createInitialState(setup);
+    for (const input of inputs) {
+      const runnerKinds = ["steal", "wild-pitch", "passed-ball", "balk", "defensive-indifference", "pickoff"];
+      events.push(
+        runnerKinds.includes(input.kind)
+          ? { id: `c${seq++}`, ts: "", type: "runner", input: input as RunnerInput }
+          : {
+              id: `c${seq++}`,
+              ts: "",
+              type: "play",
+              batterId: currentBatterId(state),
+              input: input as BatterInput,
+            },
+      );
+      state = reduceEvents(setup, events);
+    }
+    return state;
+  }
+  /** Circle recorded in the first batter's box of the first inning. */
+  const firstBox = (state: ReturnType<typeof runAny>) =>
+    buildScorecard(state, "away")[0].cells[1]?.outOnBases;
+
+  it("circles second base for the runner forced on a 6-4-3 double play", () => {
+    const state = runAny([
+      single,
+      { kind: "batted", batted: "ground", fielders: [6, 4, 3], retired: [1, "batter"] },
+    ]);
+    expect(firstBox(state)).toEqual({ base: 2 });
+  });
+
+  it("circles second base for the runner retired on a fielder's choice", () => {
+    const state = runAny([
+      single,
+      { kind: "batted", batted: "ground", fielders: [5, 4], retired: [1] },
+    ]);
+    expect(firstBox(state)).toEqual({ base: 2 });
+  });
+
+  it("circles second base with CS on a caught stealing", () => {
+    const state = runAny([single, { kind: "steal", attempts: [{ from: 1, safe: false }] }]);
+    expect(firstBox(state)).toEqual({ base: 2, label: "CS" });
+  });
+
+  it("circles first base with PO on a pickoff", () => {
+    const state = runAny([single, { kind: "pickoff", from: 1, out: true, fielders: [1, 3] }]);
+    expect(firstBox(state)).toEqual({ base: 1, label: "PO" });
   });
 });

@@ -190,8 +190,21 @@ export function resolveRunnerAdvancement(
 
   // No decisions are needed once the half inning is over.
   const inningEnds = state.outs + outsRecorded >= 3;
+
+  // Rule 5.08(a) / 5.09: no run scores when the third out of the half inning is
+  // made by the batter-runner before reaching first base, or by any runner being
+  // forced out. Only a genuine time play (a tag out on a non-force play) lets a
+  // run that crossed the plate first still count.
+  const thirdOutNegatesRuns =
+    inningEnds &&
+    (batterTo === "out" ||
+      advances.some((a) => a.to === "out" && a.reason === "force-out"));
+  const finalAdvances = thirdOutNegatesRuns
+    ? advances.filter((a) => a.to === "out")
+    : advances;
+
   return {
-    advances,
+    advances: finalAdvances,
     batterTo,
     outsRecorded,
     uncertain: inningEnds ? [] : uncertain,

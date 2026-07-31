@@ -177,10 +177,31 @@ export function pitchingStats(state: GameState, side: TeamSide): PitchingLine[] 
     if (res.isStrikeout) p.so += 1;
     if (res.isWalk) p.bb += 1;
     if (res.classification === "HBP") p.hbp += 1;
-    p.r += play.runsScored.length;
-    if (res.earnedRuns) p.er += play.runsScored.length;
     p.outs += res.outsRecorded;
+
+    // Charge runs to the pitcher originally responsible for the runner.
+    for (const runnerId of play.runsScored) {
+      const responsible = play.runResponsibility[runnerId] ?? play.pitcherId;
+      const line = get(responsible);
+      line.r += 1;
+      if (play.earnedRunIds.includes(runnerId)) line.er += 1;
+    }
   });
+
+  // Inherited and bequeathed runners come from substitution records.
+  for (const sub of state.subLog) {
+    if (sub.team !== side) continue;
+    if (!sub.inheritedRunners || !sub.previousPitcherId || !sub.newPitcherId) continue;
+    const newLine = get(sub.newPitcherId);
+    const prevLine = get(sub.previousPitcherId);
+    newLine.inheritedRunners += sub.inheritedRunners.length;
+    for (const runnerId of sub.inheritedRunners) {
+      if (runnerScoredAfter(state, runnerId, sub.playIndex ?? 0)) {
+        newLine.inheritedRunnersScored += 1;
+        prevLine.bequeathedRunnersScored += 1;
+      }
+    }
+  }
 
   // Ensure the current pitcher is listed even if no plays have been logged yet.
   get(state.pitcher[side]);
@@ -198,6 +219,17 @@ export function pitchingStats(state: GameState, side: TeamSide): PitchingLine[] 
     const bIdx = firstAppearance.get(b.playerId) ?? Infinity;
     return aIdx - bIdx;
   });
+}
+
+/** True if a runner who was on base at `subPlayIndex` later scored in the same half-inning. */
+function runnerScoredAfter(state: GameState, runnerId: string, subPlayIndex: number): boolean {
+  for (let i = subPlayIndex + 1; i < state.plays.length; i++) {
+    const play = state.plays[i];
+    if (play.runsScored.includes(runnerId)) return true;
+    // If the half-inning changed without this runner scoring, stop looking.
+    if (i > subPlayIndex && play.outsBefore === 0) return false;
+  }
+  return false;
 }
 
 export function fieldingStats(state: GameState, side: TeamSide): FieldingLine[] {

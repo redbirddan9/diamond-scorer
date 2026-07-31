@@ -196,7 +196,7 @@ export function pitchingStats(state: GameState, side: TeamSide): PitchingLine[] 
     const prevLine = get(sub.previousPitcherId);
     newLine.inheritedRunners += sub.inheritedRunners.length;
     for (const runnerId of sub.inheritedRunners) {
-      if (runnerScoredAfter(state, runnerId, sub.playIndex ?? 0)) {
+      if (runnerScoredAfter(state, runnerId, sub)) {
         newLine.inheritedRunnersScored += 1;
         prevLine.bequeathedRunnersScored += 1;
       }
@@ -221,13 +221,13 @@ export function pitchingStats(state: GameState, side: TeamSide): PitchingLine[] 
   });
 }
 
-/** True if a runner who was on base at `subPlayIndex` later scored in the same half-inning. */
-function runnerScoredAfter(state: GameState, runnerId: string, subPlayIndex: number): boolean {
-  for (let i = subPlayIndex + 1; i < state.plays.length; i++) {
+/** True if a runner who was on base at the time of a sub later scored in the same half-inning. */
+function runnerScoredAfter(state: GameState, runnerId: string, sub: SubRecord): boolean {
+  for (let i = sub.playIndex ?? 0; i < state.plays.length; i++) {
     const play = state.plays[i];
     if (play.runsScored.includes(runnerId)) return true;
-    // If the half-inning changed without this runner scoring, stop looking.
-    if (i > subPlayIndex && play.outsBefore === 0) return false;
+    // If the half-inning changed, the runner was stranded.
+    if (play.inning !== sub.inning || play.half !== sub.half) return false;
   }
   return false;
 }

@@ -233,7 +233,7 @@ function logPlay(
   const batterId = ev.type === "play" ? ev.batterId : null;
 
   // Every scoring decision comes from the rules layer.
-  const resolution = resolvePlay(state, ev.input, ev.overrides ?? {});
+  const resolution = resolvePlay(state, ev.input, ev.overrides ?? {}, batterId ?? undefined);
 
   if (resolution.isHit) state.hits[offense] += 1;
   state.errors[defense] += resolution.errorFielders.length;

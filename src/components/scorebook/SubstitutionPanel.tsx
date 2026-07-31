@@ -23,6 +23,7 @@ interface Props {
 
 export function SubstitutionPanel({ state, onSubmit, onCancel }: Props) {
   const [kind, setKind] = useState<Kind | null>(null);
+  const [assignId, setAssignId] = useState<string>("");
   const [name, setName] = useState("");
   const [slot, setSlot] = useState<number | null>(null);
   const [base, setBase] = useState<Base | null>(null);
@@ -39,6 +40,20 @@ export function SubstitutionPanel({ state, onSubmit, onCancel }: Props) {
   const occupied = ([1, 2, 3] as Base[]).filter((b) => state.bases[b]);
 
   const submit = () => {
+    // Give a pinch hitter/runner their defensive position once the inning ends.
+    if (kind === "POS") {
+      if (!assignId || !position) return;
+      const idx = state.lineup[team].indexOf(assignId);
+      onSubmit({
+        team,
+        kind: "DEF",
+        outPlayerId: assignId,
+        inPlayerId: assignId,
+        slot: idx >= 0 ? idx : undefined,
+        position,
+      });
+      return;
+    }
     if (!kind || !name.trim()) return;
     const inPlayerId = `sub-${Math.random().toString(36).slice(2, 9)}`;
     let outPlayerId = "";
@@ -83,7 +98,7 @@ export function SubstitutionPanel({ state, onSubmit, onCancel }: Props) {
   return (
     <div className="space-y-3">
       <h3 className="text-sm font-semibold uppercase tracking-wide">Substitution</h3>
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-5 gap-2">
         {KINDS.map((k) => (
           <Button
             key={k.value}
@@ -107,13 +122,35 @@ export function SubstitutionPanel({ state, onSubmit, onCancel }: Props) {
           <p className="text-xs text-muted-foreground">
             {team === "away" ? state.setup.away.name : state.setup.home.name}
           </p>
-          <Input
+          {kind === "POS" && (
+            <div className="space-y-2">
+              <p className="text-xs uppercase text-muted-foreground">Pinch hitter / runner</p>
+              {pending.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nobody is waiting for a position.</p>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {pending.map((id) => (
+                    <Button
+                      key={id}
+                      variant={assignId === id ? "default" : "outline"}
+                      className="h-11 truncate text-xs"
+                      onClick={() => setAssignId(id)}
+                    >
+                      {nameOf(id)}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              <PositionGrid value={position} onChange={setPosition} compact />
+            </div>
+          )}
+          {kind !== "POS" && <Input
             className="h-11"
             placeholder="Incoming player name"
             value={name}
             autoFocus
             onChange={(e) => setName(e.target.value)}
-          />
+          />}
 
           {kind === "PH" && (
             <div>
@@ -179,8 +216,12 @@ export function SubstitutionPanel({ state, onSubmit, onCancel }: Props) {
             <Button variant="ghost" className="h-11" onClick={onCancel}>
               Cancel
             </Button>
-            <Button className="h-11 flex-1" onClick={submit} disabled={!name.trim()}>
-              Make substitution
+            <Button
+              className="h-11 flex-1"
+              onClick={submit}
+              disabled={kind === "POS" ? !assignId || !position : !name.trim()}
+            >
+              {kind === "POS" ? "Assign position" : "Make substitution"}
             </Button>
           </div>
         </div>

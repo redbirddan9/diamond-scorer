@@ -93,7 +93,7 @@ function NameBox({ row }: { row: RowModel }) {
 
 function ScoreCell({ cell }: { cell?: CellModel }) {
   if (!cell) return <div className="h-full w-full" />;
-  const { play, base, scored, caughtStealingAt, errorAdvance, pathLabels, outNumber, pitcherChange } =
+  const { play, base, scored, caughtStealingAt, pickedOffAt, errorAdvance, pathLabels, outNumber, pitcherChange } =
     cell;
   const marks = notationParts(play);
   // Diamond corners: home, 1B, 2B, 3B.
@@ -104,6 +104,7 @@ function ScoreCell({ cell }: { cell?: CellModel }) {
     4: [30, 52],
   };
   const csCorner = caughtStealingAt ? corners[caughtStealingAt] : undefined;
+  const poCorner = pickedOffAt ? corners[pickedOffAt] : undefined;
   const csFrom = caughtStealingAt ? corners[caughtStealingAt - 1] ?? corners[4] : undefined;
   const csMid =
     csCorner && csFrom

@@ -240,10 +240,6 @@ export function resolveRunnerAdvancement(
     }
   }
 
-  if (input.kind === "batted" && input.errorFielders?.length && batterTo !== "out") {
-    marks.push({ runnerId: batterId, base: 1, label: `E${input.errorFielders[0]}` });
-  }
-
   const secondary = input.kind === "hit" || input.kind === "batted" ? input.secondary : undefined;
   if (secondary) {
     const applied = applySecondary(bases, secondary, advances, batterTo, batterId, marks);

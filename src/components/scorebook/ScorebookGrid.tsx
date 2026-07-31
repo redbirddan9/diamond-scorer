@@ -93,7 +93,7 @@ function NameBox({ row }: { row: RowModel }) {
 
 function ScoreCell({ cell }: { cell?: CellModel }) {
   if (!cell) return <div className="h-full w-full" />;
-  const { play, base, scored, caughtStealingAt, errorAdvance, pathLabels, outNumber, pitcherChange } =
+  const { play, base, scored, caughtStealingAt, pickedOffAt, errorAdvance, pathLabels, outNumber, pitcherChange } =
     cell;
   const marks = notationParts(play);
   // Diamond corners: home, 1B, 2B, 3B.
@@ -104,6 +104,7 @@ function ScoreCell({ cell }: { cell?: CellModel }) {
     4: [30, 52],
   };
   const csCorner = caughtStealingAt ? corners[caughtStealingAt] : undefined;
+  const poCorner = pickedOffAt ? corners[pickedOffAt] : undefined;
   const csFrom = caughtStealingAt ? corners[caughtStealingAt - 1] ?? corners[4] : undefined;
   const csMid =
     csCorner && csFrom
@@ -196,6 +197,29 @@ function ScoreCell({ cell }: { cell?: CellModel }) {
                 CS
               </text>
             )}
+          </>
+        )}
+        {poCorner && (
+          <>
+            <circle
+              cx={poCorner[0]}
+              cy={poCorner[1]}
+              r="5"
+              className="fill-none stroke-ink"
+              strokeWidth="1.5"
+            />
+            <text
+              x={poCorner[0]}
+              y={poCorner[1]}
+              dx={poCorner[0] < 30 ? -8 : 8}
+              dy={poCorner[1] < 32 ? -4 : 6}
+              textAnchor="middle"
+              className="fill-ink font-mono"
+              fontSize="9"
+              fontWeight="700"
+            >
+              PO
+            </text>
           </>
         )}
       </svg>

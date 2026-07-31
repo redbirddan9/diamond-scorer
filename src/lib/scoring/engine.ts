@@ -284,14 +284,14 @@ function logPlay(
   state.errors[defense] += resolution.errorFielders.length;
 
   const batterReason = ev.type === "play" ? batterReasonFor(ev.input) : "other";
-  const { outs, scored } = applyMovement(state, resolution.advances, batterId, resolution.batterTo, batterReason);
+  const { outs, scored, taintedRuns, runResponsibility } = applyMovement(
+    state,
+    resolution.advances,
+    batterId,
+    resolution.batterTo,
+    batterReason,
+  );
   state.outs += outs;
-
-  const taintedRuns = scored.filter((id) => state.runnerState[id]?.tainted);
-  const runResponsibility: Record<string, string> = {};
-  for (const id of scored) {
-    runResponsibility[id] = state.runnerState[id]?.responsiblePitcherId ?? pitcherId;
-  }
 
   const logged: LoggedPlay = {
     id: ev.id,

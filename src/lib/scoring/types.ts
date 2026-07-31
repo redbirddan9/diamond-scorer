@@ -178,6 +178,20 @@ export interface Advance {
   from: Base;
   to: Destination;
   reason: AdvanceReason;
+  /** Position number charged with an error that caused this movement. */
+  errorFielder?: number;
+}
+
+/**
+ * A notation that belongs on a basepath of the scorecard diamond (SB, CS, WP,
+ * PB, E9 …). `base` is the base the runner was heading for (1-4).
+ */
+export interface BasepathMark {
+  runnerId: string;
+  base: number;
+  label: string;
+  /** Runner was retired attempting that base — circle the corner. */
+  out?: boolean;
 }
 
 /** The full, official outcome of one play as decided by the rules layer. */
@@ -197,6 +211,8 @@ export interface PlayResolution {
   isPlateAppearance: boolean;
   isStrikeout: boolean;
   isWalk: boolean;
+  /** Basepath notations produced by this play. */
+  marks: BasepathMark[];
   /** Runner keys whose destination the engine could not infer with certainty. */
   uncertain: RunnerKey[];
 }

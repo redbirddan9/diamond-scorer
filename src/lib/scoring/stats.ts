@@ -37,6 +37,12 @@ export interface PitchingLine {
   pitches: number;
   era: number;
   whip: number;
+  /** Runners on base when this pitcher entered the game. */
+  inheritedRunners: number;
+  /** Inherited runners who scored while this pitcher was pitching. */
+  inheritedRunnersScored: number;
+  /** Runners this pitcher left on base who scored after he left. */
+  bequeathedRunnersScored: number;
 }
 
 export interface FieldingLine {

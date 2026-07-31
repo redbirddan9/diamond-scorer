@@ -108,6 +108,8 @@ export type BatterInput =
       fielders: number[];
       /** Everyone the defense retired on this continuous play. */
       retired: OutTarget[];
+      /** Caught in foul territory (pop foul). */
+      foul?: boolean;
       errorFielders?: number[];
       secondary?: SecondaryError;
     }

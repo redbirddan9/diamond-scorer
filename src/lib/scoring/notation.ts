@@ -30,7 +30,7 @@ export const RESULT_LABELS: Record<PlayClassification, string> = {
 };
 
 /** Backwards K — the traditional called-strikeout mark. */
-export const BACKWARDS_K = "\u02E4\u030F".length ? "\u04FA" : "K";
+export const BACKWARDS_K = "\uA7B0";
 
 /** Subscript letter for each caught-ball trajectory. */
 const AIR_LETTER: Record<string, string> = { fly: "F", line: "L", popup: "P", bunt: "B" };

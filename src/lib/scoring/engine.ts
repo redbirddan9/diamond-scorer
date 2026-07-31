@@ -7,6 +7,7 @@
  */
 import type {
   AbsEvent,
+  Advance,
   AdvanceReason,
   Base,
   BatterInput,

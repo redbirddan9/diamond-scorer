@@ -254,17 +254,22 @@ describe("out inference from the fielding sequence", () => {
 });
 
 describe("circled base for outs on the basepaths", () => {
-  function runAny(inputs: PlayInput[]) {
+  function runAny(inputs: (BatterInput | RunnerInput)[]) {
     const events: GameEvent[] = [];
     let state = createInitialState(setup);
     for (const input of inputs) {
-      events.push({
-        id: `c${seq++}`,
-        ts: "",
-        type: "play",
-        batterId: currentBatterId(state),
-        input,
-      });
+      const runnerKinds = ["steal", "wild-pitch", "passed-ball", "balk", "defensive-indifference", "pickoff"];
+      events.push(
+        runnerKinds.includes(input.kind)
+          ? { id: `c${seq++}`, ts: "", type: "runner", input: input as RunnerInput }
+          : {
+              id: `c${seq++}`,
+              ts: "",
+              type: "play",
+              batterId: currentBatterId(state),
+              input: input as BatterInput,
+            },
+      );
       state = reduceEvents(setup, events);
     }
     return state;

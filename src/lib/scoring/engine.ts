@@ -191,12 +191,13 @@ function checkWalkOff(state: GameState) {
   }
 }
 
-/** Apply runner + batter destinations to the base state. */
+/** Apply runner + batter destinations to the base state and runner-state book. */
 function applyMovement(
   state: GameState,
   advances: Advance[],
   batterId: string | null,
   batterTo: Destination | null,
+  batterReason: AdvanceReason = "hit",
 ): { outs: number; scored: string[] } {
   const offense = battingSide(state);
   const next = emptyBases();
@@ -215,27 +216,43 @@ function applyMovement(
     if (!id) continue;
     if (adv.to === "out") {
       outs += 1;
+      delete state.runnerState[id];
     } else if (adv.to === 4) {
       scored.push(id);
       addRun(state, offense);
+      delete state.runnerState[id];
     } else {
       next[adv.to] = id;
+      if (taintedReason(adv.reason)) {
+        state.runnerState[id] = { ...state.runnerState[id], runnerId: id, tainted: true };
+      }
     }
   }
 
   if (batterId && batterTo !== null) {
     if (batterTo === "out") {
       outs += 1;
+      delete state.runnerState[batterId];
     } else if (batterTo === 4) {
       scored.push(batterId);
       addRun(state, offense);
+      delete state.runnerState[batterId];
     } else {
       next[batterTo] = batterId;
+      state.runnerState[batterId] = {
+        runnerId: batterId,
+        responsiblePitcherId: state.pitcher[fieldingSide(state)],
+        tainted: taintedReason(batterReason),
+      };
     }
   }
 
   state.bases = next;
   return { outs, scored };
+}
+
+function taintedReason(reason: AdvanceReason): boolean {
+  return reason === "error" || reason === "passed-ball" || reason === "catcher-interference";
 }
 
 function logPlay(
@@ -256,8 +273,11 @@ function logPlay(
   if (resolution.isHit) state.hits[offense] += 1;
   state.errors[defense] += resolution.errorFielders.length;
 
-  const { outs, scored } = applyMovement(state, resolution.advances, batterId, resolution.batterTo);
+  const batterReason = ev.type === "play" ? batterReasonFor(ev.input) : "other";
+  const { outs, scored } = applyMovement(state, resolution.advances, batterId, resolution.batterTo, batterReason);
   state.outs += outs;
+
+  const taintedRuns = scored.filter((id) => state.runnerState[id]?.tainted);
 
   const logged: LoggedPlay = {
     id: ev.id,
@@ -273,6 +293,7 @@ function logPlay(
     pitcherId,
     outsBefore,
     runsScored: scored,
+    taintedRuns,
     pitchCount,
   };
   state.plays.push(logged);
@@ -289,6 +310,23 @@ function logPlay(
   if (state.outs >= 3) endHalfInning(state);
   else checkWalkOff(state);
   return state;
+}
+
+function batterReasonFor(input: BatterInput): AdvanceReason {
+  switch (input.kind) {
+    case "hit":
+      return "hit";
+    case "walk":
+      return "walk";
+    case "batted":
+      return input.errorFielders?.length ? "error" : "fielders-choice";
+    case "catcher-interference":
+      return "catcher-interference";
+    case "dropped-third":
+      return input.cause === "passed-ball" ? "passed-ball" : "error";
+    default:
+      return "other";
+  }
 }
 
 /** How the count changes when an ABS challenge is resolved. */

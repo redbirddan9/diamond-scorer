@@ -11,6 +11,11 @@ export interface CellModel {
   scored: boolean;
   /** Base at which the batter-runner was caught stealing (2, 3 or 4), if any. */
   caughtStealingAt?: number;
+  /**
+   * Secondary error on a hit: label drawn along the basepath the batter took
+   * because of the error (e.g. E9 between 2B and 3B).
+   */
+  errorAdvance?: { from: number; to: number; label: string };
   /** Which out of the inning this batter was, if retired at the plate. */
   outNumber?: number;
   /** A pitching change happened before this plate appearance. */
@@ -92,11 +97,28 @@ export function buildScorecard(state: GameState, side: TeamSide): RowModel[] {
       if (play.type !== "play" || play.battingTeam !== side || play.slot !== slot) return;
       const progress = batterProgress(state.plays, index);
       const pitcherChange = pitchChangePlayIds.has(play.id);
+      let errorAdvance: CellModel["errorAdvance"];
+      if (
+        play.input?.kind === "hit" &&
+        play.input.errorFielders?.length &&
+        typeof play.resolution.batterTo === "number"
+      ) {
+        const from = play.input.bases;
+        const to = play.resolution.batterTo;
+        if (to > from) {
+          errorAdvance = {
+            from,
+            to,
+            label: `E${play.input.errorFielders.join("")}`,
+          };
+        }
+      }
       cells[play.inning] = {
         play,
         base: progress.base,
         scored: progress.scored,
         caughtStealingAt: progress.caughtStealingAt,
+        errorAdvance,
         outNumber: play.resolution.batterTo === "out" ? play.outsBefore + 1 : undefined,
         pitcherChange,
       };

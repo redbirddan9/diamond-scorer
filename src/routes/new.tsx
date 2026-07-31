@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -65,12 +65,21 @@ function NewGame() {
     umpSecond: "",
     umpThird: "",
   });
-  const templates = loadTemplates();
-  const recall = {
-    teams: loadRecall("teams"),
-    stadiums: loadRecall("stadiums"),
-    cities: loadRecall("cities"),
-  };
+  // Local storage is client-only: read after mount so SSR markup matches.
+  const [templates, setTemplates] = useState<ReturnType<typeof loadTemplates>>([]);
+  const [recall, setRecall] = useState({
+    teams: [] as string[],
+    stadiums: [] as string[],
+    cities: [] as string[],
+  });
+  useEffect(() => {
+    setTemplates(loadTemplates());
+    setRecall({
+      teams: loadRecall("teams"),
+      stadiums: loadRecall("stadiums"),
+      cities: loadRecall("cities"),
+    });
+  }, []);
 
   const buildTeam = (name: string, players: Player[], pitcherName: string): TeamSetup => {
     const filled = players.map((p, i) => ({

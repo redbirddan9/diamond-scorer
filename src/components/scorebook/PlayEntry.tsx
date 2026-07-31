@@ -405,19 +405,6 @@ export function PlayEntry({
         return;
       }
 
-      if (stage.name === "legacy-batted-type-never") {
-        const b = BATTED.find((x) => x.hot === k);
-        if (b) {
-          setFielders([]);
-          setStage({ name: "fielders", flow: stage.flow, batted: b.key });
-          e.preventDefault();
-        } else if (e.key === "Escape") {
-          back();
-          e.preventDefault();
-        }
-        return;
-      }
-
       if (stage.name !== "menu") {
         if (e.key === "Escape") {
           back();

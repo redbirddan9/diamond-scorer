@@ -9,6 +9,8 @@ export interface CellModel {
   /** Furthest base reached by the batter in that inning (0-4). */
   base: number;
   scored: boolean;
+  /** Base at which the batter-runner was caught stealing (2, 3 or 4), if any. */
+  caughtStealingAt?: number;
   /** Which out of the inning this batter was, if retired at the plate. */
   outNumber?: number;
   /** A pitching change happened before this plate appearance. */
@@ -35,13 +37,17 @@ export function batterProgress(plays: LoggedPlay[], index: number) {
   let base = batterTo === "out" || batterTo === null ? 0 : batterTo === 4 ? 4 : Number(batterTo);
   let scored = base === 4;
   let out = batterTo === "out";
+  let caughtStealingAt: number | undefined;
   if (!out && !scored) {
     for (let i = index + 1; i < plays.length; i += 1) {
       const later = plays[i];
       if (later.inning !== play.inning || later.half !== play.half) break;
       for (const adv of later.resolution.advances) {
         if (adv.runnerId !== play.batterId) continue;
-        if (adv.to === "out") out = true;
+        if (adv.to === "out") {
+          out = true;
+          if (adv.reason === "caught-stealing") caughtStealingAt = adv.from + 1;
+        }
         else if (adv.to === 4) {
           base = 4;
           scored = true;
@@ -50,7 +56,7 @@ export function batterProgress(plays: LoggedPlay[], index: number) {
       if (out || scored) break;
     }
   }
-  return { base, scored, out };
+  return { base, scored, out, caughtStealingAt };
 }
 
 export function buildScorecard(state: GameState, side: TeamSide): RowModel[] {
@@ -84,6 +90,7 @@ export function buildScorecard(state: GameState, side: TeamSide): RowModel[] {
         play,
         base: progress.base,
         scored: progress.scored,
+        caughtStealingAt: progress.caughtStealingAt,
         outNumber: play.resolution.batterTo === "out" ? play.outsBefore + 1 : undefined,
         pitcherChange,
       };

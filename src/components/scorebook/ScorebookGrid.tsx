@@ -225,7 +225,9 @@ function ScoreCell({ cell }: { cell?: CellModel }) {
       </svg>
       <div className="relative flex h-full flex-col items-center justify-center leading-none">
         {marks.above && (
-          <span className="font-mono text-[9px] font-bold">{marks.above}</span>
+          <span className="font-mono text-[10px] font-bold leading-none tracking-tight">
+            {marks.above}
+          </span>
         )}
         <span className="font-mono text-[13px] font-bold">
           {marks.main}

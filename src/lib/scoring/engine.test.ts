@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createInitialState, currentBatterId, reduceEvents } from "./engine";
-import { resolvePlay, validate } from "./rules";
+import { inferRetired, resolvePlay, validate } from "./rules";
 import type { BatterInput, GameEvent, GameSetup } from "./types";
 
 function team(prefix: string): GameSetup["home"] {
@@ -190,5 +190,64 @@ describe("rules engine", () => {
     expect(state.challenges.away).toBe(2);
     expect(state.challenges.home).toBe(1);
     expect(state.balls).toBe(2);
+  });
+});
+
+describe("out inference from the fielding sequence", () => {
+  const withRunnerOnFirst = (fielders: number[]) => {
+    let state = createInitialState(setup);
+    state = reduceEvents(setup, [
+      { id: "s1", ts: "", type: "play", batterId: "A1", input: single },
+    ]);
+    const inferred = inferRetired(state.bases, "ground", fielders);
+    return { state, inferred };
+  };
+
+  it("puts the batter out on 5-3", () => {
+    const { state, inferred } = withRunnerOnFirst([5, 3]);
+    expect(inferred).toEqual(["batter"]);
+    const res = resolvePlay(state, {
+      kind: "batted",
+      batted: "ground",
+      fielders: [5, 3],
+      retired: inferred!,
+    });
+    expect(res.classification).toBe("OUT");
+    expect(res.advances.find((a) => a.from === 1)?.to).toBe(2);
+  });
+
+  it("scores 5-4 with a runner on first as a fielder's choice", () => {
+    const { state, inferred } = withRunnerOnFirst([5, 4]);
+    expect(inferred).toEqual([1]);
+    const res = resolvePlay(state, {
+      kind: "batted",
+      batted: "ground",
+      fielders: [5, 4],
+      retired: inferred!,
+    });
+    expect(res.classification).toBe("FC");
+    expect(res.batterTo).toBe(1);
+    expect(res.outsRecorded).toBe(1);
+  });
+
+  it("scores 6-4-3 as a double play", () => {
+    const { state, inferred } = withRunnerOnFirst([6, 4, 3]);
+    expect(inferred).toEqual([1, "batter"]);
+    const res = resolvePlay(state, {
+      kind: "batted",
+      batted: "ground",
+      fielders: [6, 4, 3],
+      retired: inferred!,
+    });
+    expect(res.classification).toBe("DP");
+    expect(res.outsRecorded).toBe(2);
+  });
+
+  it("asks the scorer when the throw goes to a base nobody is forced to", () => {
+    const { inferred } = withRunnerOnFirst([5, 5]);
+    expect(inferred).toBeNull();
+    const empty = createInitialState(setup);
+    expect(inferRetired(empty.bases, "ground", [6, 4])).toBeNull();
+    expect(inferRetired(empty.bases, "fly", [9])).toBeNull();
   });
 });

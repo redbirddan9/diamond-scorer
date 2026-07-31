@@ -124,9 +124,11 @@ export function resolveRunnerAdvancement(
     switch (input.kind) {
       case "hit": {
         to = advanceBy(from, hitTotalBases(input));
-        // Hits use standard base-for-base advancement; no scorer input needed.
-        // A secondary error, though, is a judgement call on every runner.
-        certain = !input.errorFielders?.length;
+        // Default is base-for-base, but a runner who could still take an extra
+        // base (and is not already scoring) is a scorer judgement — e.g. a fast
+        // runner going first to third on a single. Once the default is home,
+        // there is nothing left to decide.
+        certain = !input.errorFielders?.length && to === 4;
         break;
       }
       case "walk":

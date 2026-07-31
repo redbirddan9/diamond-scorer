@@ -1,5 +1,5 @@
-/** Remembered free-text entries (teams, stadiums, cities) for quick re-entry. */
-export type RecallKind = "teams" | "stadiums" | "cities";
+/** Remembered free-text entries (teams, stadiums, cities, players) for quick re-entry. */
+export type RecallKind = "teams" | "stadiums" | "cities" | "players";
 
 const KEY = (kind: RecallKind) => `scorebook.recall.${kind}`;
 
@@ -18,6 +18,7 @@ export function rememberRecall(kind: RecallKind, ...values: string[]) {
   const clean = values.map((v) => v.trim()).filter(Boolean);
   if (!clean.length) return;
   const existing = loadRecall(kind);
-  const merged = [...clean, ...existing.filter((v) => !clean.includes(v))].slice(0, 40);
+  const limit = kind === "players" ? 300 : 40;
+  const merged = [...clean, ...existing.filter((v) => !clean.includes(v))].slice(0, limit);
   localStorage.setItem(KEY(kind), JSON.stringify(merged));
 }

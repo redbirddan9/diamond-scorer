@@ -21,6 +21,7 @@ import type {
   TeamSide,
 } from "./types";
 import { resolvePlay } from "./rules";
+import { computeEarnedRuns } from "./rules/earned-runs";
 
 export function emptyBases(): Record<Base, string | null> {
   return { 1: null, 2: null, 3: null };

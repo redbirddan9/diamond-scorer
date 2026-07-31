@@ -90,6 +90,9 @@ const emptyPitching = (playerId: string): PitchingLine => ({
   pitches: 0,
   era: 0,
   whip: 0,
+  inheritedRunners: 0,
+  inheritedRunnersScored: 0,
+  bequeathedRunnersScored: 0,
 });
 
 const ratio = (n: number, d: number) => (d > 0 ? n / d : 0);

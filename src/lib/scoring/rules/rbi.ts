@@ -22,7 +22,10 @@ export function calculateRBIs(
   // Runs on a dropped third strike / passed ball are not batted in.
   if (input.kind === "dropped-third") return 0;
 
-  return runs;
+  // A run that only scored because of a secondary error is not batted in.
+  const errorRuns = adv.marks.filter((m) => m.base === 4 && m.label.startsWith("E")).length;
+
+  return Math.max(runs - errorRuns, 0);
 }
 
 /** Runner-only plays (steals, wild pitches, balks) never produce RBIs. */

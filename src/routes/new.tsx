@@ -261,7 +261,6 @@ function NewGame() {
         players={away}
         onChange={setAway}
         templates={templates}
-        nameSuggestions={recall.players}
         onSaveTemplate={() => saveTemplate({ name: meta.awayName, players: away })}
       />
       <RosterEditor
@@ -269,7 +268,6 @@ function NewGame() {
         players={home}
         onChange={setHome}
         templates={templates}
-        nameSuggestions={recall.players}
         onSaveTemplate={() => saveTemplate({ name: meta.homeName, players: home })}
       />
 
@@ -290,14 +288,12 @@ function RosterEditor({
   players,
   onChange,
   templates,
-  nameSuggestions,
   onSaveTemplate,
 }: {
   title: string;
   players: Player[];
   onChange: (players: Player[]) => void;
   templates: { name: string; players: Player[] }[];
-  nameSuggestions: string[];
   onSaveTemplate: () => void;
 }) {
   const update = (index: number, patch: Partial<Player>) =>

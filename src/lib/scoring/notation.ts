@@ -97,15 +97,15 @@ export function notationParts(play: LoggedPlay): NotationParts {
     case "K":
       if (input.kind === "dropped-third") {
         const cause = input.cause === "passed-ball" ? "PB" : input.cause === "wild-pitch" ? "WP" : "2-3";
-        return { main: input.swinging ? "K" : "L", sub: cause };
+        return { main: input.swinging ? "K" : "ꓘ", sub: cause };
       }
-      return { main: input.kind === "strikeout" && !input.swinging ? "L" : "K" };
+      return { main: input.kind === "strikeout" && !input.swinging ? "ꓘ" : "K" };
     case "BB":
       return { main: "BB" };
     case "IBB":
       return { main: "IBB" };
     case "HBP":
-      return { main: "HP" };
+      return { main: "HBP" };
     case "CI":
       return { main: "CI" };
     case "E":

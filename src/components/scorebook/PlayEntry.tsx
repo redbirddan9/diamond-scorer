@@ -354,6 +354,58 @@ export function PlayEntry({
       }
 
       if (stage.name === "batted-type") {
+        const bt = BATTED.find((x) => x.hot === k);
+        if (bt) {
+          setFielders([]);
+          setStage({ name: "fielders", flow: stage.flow, batted: bt.key });
+          e.preventDefault();
+        } else if (e.key === "Escape") {
+          back();
+          e.preventDefault();
+        }
+        return;
+      }
+
+      if (stage.name === "hit-error-bases") {
+        if (/^[1-3]$/.test(k)) {
+          setStage({ name: "hit-error-fielder", bases: Number(k) as 1 | 2 | 3 });
+          e.preventDefault();
+        } else if (e.key === "Escape") {
+          back();
+          e.preventDefault();
+        }
+        return;
+      }
+
+      if (stage.name === "hit-error-fielder") {
+        if (/^[1-9]$/.test(k)) {
+          setStage({ name: "hit-error-extra", bases: stage.bases, fielder: Number(k) });
+          e.preventDefault();
+        } else if (e.key === "Escape") {
+          back();
+          e.preventDefault();
+        }
+        return;
+      }
+
+      if (stage.name === "hit-error-extra") {
+        const max = 4 - stage.bases;
+        if (/^[1-3]$/.test(k) && Number(k) <= max) {
+          commitPlay({
+            kind: "hit",
+            bases: stage.bases,
+            errorFielders: [stage.fielder],
+            errorExtraBases: Number(k) as 1 | 2 | 3,
+          });
+          e.preventDefault();
+        } else if (e.key === "Escape") {
+          back();
+          e.preventDefault();
+        }
+        return;
+      }
+
+      if (stage.name === "legacy-batted-type-never") {
         const b = BATTED.find((x) => x.hot === k);
         if (b) {
           setFielders([]);

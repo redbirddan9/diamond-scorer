@@ -177,3 +177,61 @@
     font-family: inherit;
   }
 }
+
+/* ---- Print / Save-as-PDF: 3 pages (away card, home card, box score) ---- */
+@media print {
+  @page {
+    size: letter landscape;
+    margin: 0.4in;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 9px;
+  }
+
+  .print-page {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .print-page-last {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .print-page * {
+    background-color: transparent !important;
+    color: #000 !important;
+    border-color: #000 !important;
+    box-shadow: none !important;
+  }
+
+  .print-page th {
+    background-color: #eee !important;
+  }
+
+  .print-page svg text {
+    fill: #000 !important;
+  }
+
+  .print-page svg [stroke]:not([stroke="none"]) {
+    stroke: #000 !important;
+  }
+
+  .print-page .overflow-x-auto,
+  .print-page .overflow-auto {
+    overflow: visible !important;
+  }
+
+  .print-page table {
+    width: 100% !important;
+    break-inside: auto;
+  }
+
+  .print-page section > div {
+    break-inside: avoid;
+  }
+}

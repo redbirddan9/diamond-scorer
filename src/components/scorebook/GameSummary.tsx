@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { BoxScore, LineScore } from "./BoxScore";
+import { gameFeats } from "@/lib/scoring/rules";
 import { pitchingStats } from "@/lib/scoring/stats";
 import type { GameSetup, GameState, TeamSide } from "@/lib/scoring/types";
 
@@ -95,6 +96,18 @@ export function GameSummary({ state, onSaveInfo }: Props) {
         <p className="mt-1 text-sm text-muted-foreground">
           {winner ? `${setup[winner].name} win` : "Tie game"} in {Math.max(state.inning - 1, setup.innings)} innings
         </p>
+        {feats.length > 0 && (
+          <div className="mt-2 flex flex-wrap justify-center gap-2">
+            {feats.map((f, i) => (
+              <span
+                key={i}
+                className="rounded-full bg-field px-3 py-1 text-xs font-semibold uppercase tracking-wide text-ink"
+              >
+                {setup[f.team].name} — {FEAT_LABELS[f.feat]}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       <LineScore state={state} />

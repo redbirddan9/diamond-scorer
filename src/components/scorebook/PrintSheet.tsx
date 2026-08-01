@@ -40,7 +40,7 @@ export function PrintSheet({ state }: { state: GameState }) {
     <section className="print-page">
       {heading(`${setup[side].name} scorecard`)}
       <LineScore state={state} />
-      <div className="mt-2">
+      <div className="print-fill mt-2">
         <ScorebookGrid state={state} side={side} activeSlot={null} />
       </div>
     </section>
@@ -64,12 +64,12 @@ export function PrintSheet({ state }: { state: GameState }) {
           </p>
         )}
         <LineScore state={state} />
-        <div className="mt-3 space-y-3">
+        <div className="print-fill mt-3 space-y-3">
           <BoxScore state={state} side="away" />
           <BoxScore state={state} side="home" />
         </div>
         {(umpires?.home || umpires?.first || umpires?.second || umpires?.third || setup.notes) && (
-          <div className="mt-3 text-xs">
+          <div className="print-footer mt-3 text-xs">
             {(umpires?.home || umpires?.first || umpires?.second || umpires?.third) && (
               <p>
                 Umpires: {[umpires?.home, umpires?.first, umpires?.second, umpires?.third]

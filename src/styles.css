@@ -189,12 +189,17 @@
   body {
     background: #fff !important;
     color: #000 !important;
-    font-size: 8px;
+    font-size: 10px;
   }
 
   .print-page {
     break-after: page;
     page-break-after: always;
+    /* letter height minus @page margins: fill the whole sheet */
+    height: 10.3in;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 
   .print-page-last {
@@ -226,6 +231,11 @@
     overflow: visible !important;
   }
 
+  /* Sticky columns shift rows out of alignment on paper. */
+  .print-page .sticky {
+    position: static !important;
+  }
+
   .print-page table {
     width: 100% !important;
     break-inside: auto;
@@ -238,5 +248,47 @@
 
   .print-page section > div {
     break-inside: avoid;
+  }
+
+  /* Stretch the main block of each page into the leftover vertical space. */
+  .print-fill {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .print-fill > div,
+  .print-fill > section {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .print-fill table {
+    height: 100% !important;
+  }
+
+  /* Scorecard cells divide the remaining height evenly instead of h-14. */
+  .print-fill tbody td,
+  .print-fill tbody th {
+    height: auto !important;
+  }
+
+  /* Box score: spread the batting/pitching/fielding tables down the page. */
+  .print-fill > section > div {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .print-fill td,
+  .print-fill section th {
+    padding-top: 0.35em !important;
+    padding-bottom: 0.35em !important;
+  }
+
+  .print-footer {
+    margin-top: auto;
   }
 }

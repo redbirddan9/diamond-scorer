@@ -1,31 +1,29 @@
-Add a proper print/PDF output for a finished game: 3 pages, each on its own sheet.
+Right now the portrait PDF fills the page width but only about a third of the height: the scorecard cells are locked to a fixed height (`h-14` on the inning cells in `ScorebookGrid.tsx`), and the box-score tables use tight row padding, so pages 1–3 all end with a large blank bottom area.
 
-## Pages
+## 1. Make each print page a full-height box
 
-1. Away team scorecard (line score header + away scorebook grid)
-2. Home team scorecard (line score header + home scorebook grid)
-3. Full box score (line score, away batting/pitching/fielding, home batting/pitching/fielding, plus game info/decisions and feats from the summary)
+In `src/styles.css` (`@media print`):
 
-## How it works
+- Give `.print-page` an explicit printable height (letter minus margins, ~10.3in) with `display: flex; flex-direction: column;` so its children can be told to absorb the leftover space.
+- Bump the print root font size from 8px to ~10px, since the extra room means we no longer need to shrink text to fit width.
 
-Currently the Print button just calls `window.print()`, which prints whatever tab happens to be open with screen styling. Instead:
+## 2. Pages 1 and 2 — scorecard fills the sheet
 
-- New `src/components/scorebook/PrintSheet.tsx` — a print-only block rendered once in the game route (`hidden print:block`). It renders all three sections regardless of the active tab, so the output never depends on which tab is visible.
-- Each section wrapped in a page container with `break-after: page` (last one without), so pages break exactly at the boundaries.
-- Print rules added to `src/styles.css` inside `@media print`:
-  - `@page { size: letter landscape; margin: 0.4in }` — landscape so the 9+ inning grid fits without clipping.
-  - Force light colors for ink (white background, black text/borders) while leaving the on-screen dark theme untouched.
-  - Hide the live app shell in print (`main > *` except the print sheet) so the screen UI doesn't leak into the PDF.
-  - Remove `overflow-x-auto` scroll clipping in print so wide tables print fully; scale the scorecard grid down if needed to fit page width.
-- The existing "Print" button is relabeled "PDF" (still `window.print()`), which via the browser's "Save as PDF" destination produces the file fully offline.
+- In `PrintSheet.tsx`, wrap the `ScorebookGrid` in a `print-fill` container that is the flex-grow child of the page.
+- Print-only CSS: inside `.print-fill`, the scorebook table gets `height: 100%`, and the inning cells' fixed height is overridden (`height: auto`) so the 9 batting rows divide the remaining vertical space evenly. The diamond SVG in each cell already scales to its box (`h-full w-full`, `viewBox 0 0 60 60`), so bigger cells mean bigger, clearer diamonds and notation with no code changes to the drawing logic.
+- Team-name column stays proportional so names don't clip.
 
-## Technical details
+## 3. Page 3 — box score fills the sheet
 
-- `LineScore`, `ScorebookGrid`, `BoxScore`, and `GameSummary` are reused as-is; no scoring, stats, or engine code changes.
-- Box score tables get `break-inside: avoid` per table so a table isn't split mid-page if content grows; page 3 may spill to a 4th sheet only when rosters are unusually long.
-- Verification: run a headless print-to-PDF of a scored game and visually check each rendered page for clipping, contrast, and correct page breaks.
+- Make the stacked away/home box-score block the flex-grow child.
+- Print-only CSS increases cell padding and line-height for the batting/pitching/fielding tables so the three sections spread down the page instead of bunching at the top, and the umpires/notes footer sits at the bottom.
+- Keep each section unbroken (`break-inside: avoid`) so nothing spills onto a 4th page.
+
+## Verification
+
+Regenerate the PDF from a real scored game in a headless browser, render all pages to images, and confirm: exactly 3 pages, each visibly filled top to bottom, no clipping, no overflow to a 4th page, and diamonds/notation legible.
 
 ## Out of scope
 
-- Changing CSV/JSON exports.
-- A custom PDF renderer (no new dependencies) — the browser print pipeline stays the mechanism.
+- Screen (non-print) layout stays exactly as it is.
+- No changes to scoring logic, stats, or notation rendering.

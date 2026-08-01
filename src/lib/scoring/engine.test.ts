@@ -591,7 +591,7 @@ describe("third-out run scoring (Rule 5.08(a) / 5.09)", () => {
     // Bottom 1: home scores 1 on a walk + wild pitch, then 3 outs. Game ends because home leads.
     events.push({ id: "w1", ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "walk" } });
     state = reduceEvents(perfectSetup, events);
-    events.push({ id: "wp", ts: "", type: "runner", input: { kind: "wild-pitch", froms: [1] } });
+    events.push({ id: "wp", ts: "", type: "runner", input: { kind: "wild-pitch" } });
     state = reduceEvents(perfectSetup, events);
     for (let i = 0; i < 3; i++) {
       events.push({ id: `khi${i}`, ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "strikeout", swinging: false } });
@@ -614,7 +614,7 @@ describe("third-out run scoring (Rule 5.08(a) / 5.09)", () => {
     // Bottom 1: home walks a runner, then a WP scores him, then 3 outs. Away never got a hit.
     events.push({ id: "w1", ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "walk" } });
     state = reduceEvents(noHitSetup, events);
-    events.push({ id: "wp", ts: "", type: "runner", input: { kind: "wild-pitch", froms: [1] } });
+    events.push({ id: "wp", ts: "", type: "runner", input: { kind: "wild-pitch" } });
     state = reduceEvents(noHitSetup, events);
     for (let i = 0; i < 3; i++) {
       events.push({ id: `khi${i}`, ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "strikeout", swinging: false } });

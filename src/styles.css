@@ -231,6 +231,17 @@
     break-inside: auto;
   }
 
+  /* Team names in the line score must not clip at print font size. */
+  .print-page .truncate {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: nowrap !important;
+  }
+
+  .print-page table.table-fixed th:first-child {
+    width: 9rem !important;
+  }
+
   .print-page section > div {
     break-inside: avoid;
   }

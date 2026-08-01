@@ -12,35 +12,35 @@ export function LineScore({ state }: { state: GameState }) {
   const row = (side: TeamSide) => {
     const totals = teamTotals(state, side);
     return (
-      <tr>
-        <th className="border border-border p-2 text-left font-medium">
-          <span className="truncate">{state.setup[side].name}</span>
-        </th>
-        {Array.from({ length: innings }, (_, i) => (
-          <td key={i} className="border border-border p-2 text-center font-mono">
-            {state.lineScore[side][i] ?? (isPlayed(state, side, i + 1) ? 0 : "")}
-          </td>
-        ))}
-        <td className="border border-border bg-secondary p-2 text-center font-mono font-bold">{totals.runs}</td>
-        <td className="border border-border bg-secondary p-2 text-center font-mono">{totals.hits}</td>
-        <td className="border border-border bg-secondary p-2 text-center font-mono">{totals.errors}</td>
-        <td className="border border-border bg-secondary p-2 text-center font-mono">{totals.lob}</td>
-      </tr>
+    <tr>
+      <th className="w-28 border border-border p-2 text-left font-medium">
+        <span className="truncate">{state.setup[side].name}</span>
+      </th>
+      {Array.from({ length: innings }, (_, i) => (
+        <td key={i} className="border border-border p-2 text-center font-mono">
+          {state.lineScore[side][i] ?? (isPlayed(state, side, i + 1) ? 0 : "")}
+        </td>
+      ))}
+      <td className="w-12 border border-border bg-secondary p-2 text-center font-mono font-bold">{totals.runs}</td>
+      <td className="w-12 border border-border bg-secondary p-2 text-center font-mono">{totals.hits}</td>
+      <td className="w-12 border border-border bg-secondary p-2 text-center font-mono">{totals.errors}</td>
+      <td className="w-12 border border-border bg-secondary p-2 text-center font-mono">{totals.lob}</td>
+    </tr>
     );
   };
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-sm">
+      <table className="w-full table-fixed border-collapse text-sm">
         <thead>
           <tr>
-            <th className="border border-border bg-secondary p-2 text-left">Team</th>
+            <th className="w-28 border border-border bg-secondary p-2 text-left">Team</th>
             {Array.from({ length: innings }, (_, i) => (
               <th key={i} className="border border-border bg-secondary p-2 font-mono">{i + 1}</th>
             ))}
-            <th className="border border-border bg-secondary p-2">R</th>
-            <th className="border border-border bg-secondary p-2">H</th>
-            <th className="border border-border bg-secondary p-2">E</th>
-            <th className="border border-border bg-secondary p-2">LOB</th>
+            <th className="w-12 border border-border bg-secondary p-2">R</th>
+            <th className="w-12 border border-border bg-secondary p-2">H</th>
+            <th className="w-12 border border-border bg-secondary p-2">E</th>
+            <th className="w-12 border border-border bg-secondary p-2">LOB</th>
           </tr>
         </thead>
         <tbody>

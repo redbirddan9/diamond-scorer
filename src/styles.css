@@ -276,6 +276,12 @@
     height: auto !important;
   }
 
+  /* Let the diamond artwork fill the taller print cell. */
+  .print-fill tbody td > div {
+    height: 100%;
+    min-height: 0.72in;
+  }
+
   /* Box score: spread the batting/pitching/fielding tables down the page. */
   .print-fill > section > div {
     flex: 1 1 auto;

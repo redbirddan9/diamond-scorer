@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { BoxScore, LineScore } from "./BoxScore";
+import { TeamMark } from "./TeamMark";
 import { gameFeats } from "@/lib/scoring/rules";
 import { pitchingStats } from "@/lib/scoring/stats";
 import type { GameSetup, GameState, TeamSide } from "@/lib/scoring/types";

@@ -613,11 +613,13 @@ describe("third-out run scoring (Rule 5.08(a) / 5.09)", () => {
       events.push({ id: `ao${i}`, ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "strikeout", swinging: false } });
       state = reduceEvents(noHitSetup, events);
     }
-    // Bottom 1: home walks a runner, then a WP scores him, then 3 outs. Away never got a hit.
+    // Bottom 1: home walks a runner, then three balks score him from first, then 3 outs. Away never got a hit.
     events.push({ id: "w1", ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "walk" } });
     state = reduceEvents(noHitSetup, events);
-    events.push({ id: "wp", ts: "", type: "runner", input: { kind: "wild-pitch" } });
-    state = reduceEvents(noHitSetup, events);
+    for (let i = 0; i < 3; i++) {
+      events.push({ id: `bk${i}`, ts: "", type: "runner", input: { kind: "balk" } });
+      state = reduceEvents(noHitSetup, events);
+    }
     for (let i = 0; i < 3; i++) {
       events.push({ id: `khi${i}`, ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "strikeout", swinging: false } });
       state = reduceEvents(noHitSetup, events);

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createInitialState, currentBatterId, reduceEvents } from "./engine";
 import { buildScorecard } from "./scorecard";
-import { inferRetired, resolvePlay, validate } from "./rules";
+import { inferRetired, pitchingDecisions, resolvePlay, validate } from "./rules";
+import { gameFeats } from "./rules/feats";
 import { pitchingStats } from "./stats";
 import type { BatterInput, GameEvent, GameSetup, RunnerInput } from "./types";
 

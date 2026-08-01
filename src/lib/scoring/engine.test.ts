@@ -440,4 +440,209 @@ describe("third-out run scoring (Rule 5.08(a) / 5.09)", () => {
     expect(state.score.away).toBe(1);
     expect(state.half).toBe("bottom");
   });
+
+  it("awards a save to a finishing reliever who enters with a 3-run lead", () => {
+    const saveSetup: GameSetup = {
+      ...setup,
+      innings: 2,
+      decisions: { win: "H1" },
+      home: {
+        ...setup.home,
+        players: [
+          ...setup.home.players,
+          { id: "H10", name: "H Reliever", position: "P" },
+        ],
+      },
+    };
+    const events: GameEvent[] = [];
+    let state = createInitialState(saveSetup);
+    // Top 1: away score 1, then 3 outs.
+    events.push({ id: "e1", ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "hit", bases: 4 } });
+    state = reduceEvents(saveSetup, events);
+    for (let i = 0; i < 3; i++) {
+      events.push({ id: `ko${i}`, ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "strikeout", swinging: false } });
+      state = reduceEvents(saveSetup, events);
+    }
+    // Bottom 1: home hits 4 solo HRs, then 3 Ks.
+    for (let i = 0; i < 4; i++) {
+      events.push({ id: `hhr${i}`, ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "hit", bases: 4 } });
+      state = reduceEvents(saveSetup, events);
+    }
+    for (let i = 0; i < 3; i++) {
+      events.push({ id: `khi${i}`, ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "strikeout", swinging: false } });
+      state = reduceEvents(saveSetup, events);
+    }
+    // Top 2: bring in H10 and get 3 outs.
+    events.push({ id: "sub1", ts: "", type: "sub", team: "home", outPlayerId: "H1", inPlayerId: "H10", position: "P", kind: "P" });
+    state = reduceEvents(saveSetup, events);
+    for (let i = 0; i < 3; i++) {
+      events.push({ id: `kso${i}`, ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "strikeout", swinging: false } });
+      state = reduceEvents(saveSetup, events);
+    }
+    expect(state.over).toBe(true);
+    expect(state.winner).toBe("home");
+    const h10 = pitchingStats(state, "home").find((p) => p.playerId === "H10");
+    expect(h10?.saves).toBe(1);
+    expect(h10?.saveOpportunities).toBe(1);
+    expect(h10?.holds).toBe(0);
+    expect(h10?.blownSaves).toBe(0);
+  });
+
+  it("records a blown save when a reliever loses a 1-run lead", () => {
+    const blownSetup: GameSetup = {
+      ...setup,
+      innings: 2,
+      home: {
+        ...setup.home,
+        players: [
+          ...setup.home.players,
+          { id: "H10", name: "H Reliever", position: "P" },
+        ],
+      },
+    };
+    const events: GameEvent[] = [];
+    let state = createInitialState(blownSetup);
+    // Top 1: 3 outs.
+    for (let i = 0; i < 3; i++) {
+      events.push({ id: `ao${i}`, ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "strikeout", swinging: false } });
+      state = reduceEvents(blownSetup, events);
+    }
+    // Bottom 1: home scores 1, then 3 outs.
+    events.push({ id: "hhr", ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "hit", bases: 4 } });
+    state = reduceEvents(blownSetup, events);
+    for (let i = 0; i < 3; i++) {
+      events.push({ id: `khi${i}`, ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "strikeout", swinging: false } });
+      state = reduceEvents(blownSetup, events);
+    }
+    // Top 2: H10 enters, away ties it, then 2 more outs.
+    events.push({ id: "sub1", ts: "", type: "sub", team: "home", outPlayerId: "H1", inPlayerId: "H10", position: "P", kind: "P" });
+    state = reduceEvents(blownSetup, events);
+    events.push({ id: "tie", ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "hit", bases: 4 } });
+    state = reduceEvents(blownSetup, events);
+    for (let i = 0; i < 2; i++) {
+      events.push({ id: `ao2${i}`, ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "strikeout", swinging: false } });
+      state = reduceEvents(blownSetup, events);
+    }
+    const h10 = pitchingStats(state, "home").find((p) => p.playerId === "H10");
+    expect(h10?.blownSaves).toBe(1);
+    expect(h10?.saveOpportunities).toBe(1);
+    expect(h10?.saves).toBe(0);
+    expect(h10?.holds).toBe(0);
+  });
+
+  it("records a hold when a reliever leaves with the lead intact", () => {
+    const holdSetup: GameSetup = {
+      ...setup,
+      innings: 2,
+      decisions: { win: "H1" },
+      home: {
+        ...setup.home,
+        players: [
+          ...setup.home.players,
+          { id: "H10", name: "H Reliever", position: "P" },
+          { id: "H11", name: "H Closer", position: "P" },
+        ],
+      },
+    };
+    const events: GameEvent[] = [];
+    let state = createInitialState(holdSetup);
+    // Top 1: 3 outs.
+    for (let i = 0; i < 3; i++) {
+      events.push({ id: `ao${i}`, ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "strikeout", swinging: false } });
+      state = reduceEvents(holdSetup, events);
+    }
+    // Bottom 1: home scores 1, then 3 outs.
+    events.push({ id: "hhr", ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "hit", bases: 4 } });
+    state = reduceEvents(holdSetup, events);
+    for (let i = 0; i < 3; i++) {
+      events.push({ id: `khi${i}`, ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "strikeout", swinging: false } });
+      state = reduceEvents(holdSetup, events);
+    }
+    // Top 2: H10 gets 1 out, then H11 gets 2 outs.
+    events.push({ id: "sub1", ts: "", type: "sub", team: "home", outPlayerId: "H1", inPlayerId: "H10", position: "P", kind: "P" });
+    state = reduceEvents(holdSetup, events);
+    events.push({ id: "h10out", ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "strikeout", swinging: false } });
+    state = reduceEvents(holdSetup, events);
+    events.push({ id: "sub2", ts: "", type: "sub", team: "home", outPlayerId: "H10", inPlayerId: "H11", position: "P", kind: "P" });
+    state = reduceEvents(holdSetup, events);
+    for (let i = 0; i < 2; i++) {
+      events.push({ id: `h11out${i}`, ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "strikeout", swinging: false } });
+      state = reduceEvents(holdSetup, events);
+    }
+    expect(state.over).toBe(true);
+    expect(state.winner).toBe("home");
+    const h10 = pitchingStats(state, "home").find((p) => p.playerId === "H10");
+    const h11 = pitchingStats(state, "home").find((p) => p.playerId === "H11");
+    expect(h10?.holds).toBe(1);
+    expect(h10?.saves).toBe(0);
+    expect(h11?.saves).toBe(1);
+    expect(h11?.holds).toBe(0);
+  });
+
+  it("detects a perfect game", () => {
+    const perfectSetup: GameSetup = { ...setup, innings: 1 };
+    const events: GameEvent[] = [];
+    let state = createInitialState(perfectSetup);
+    // Top 1: 3 outs.
+    for (let i = 0; i < 3; i++) {
+      events.push({ id: `ao${i}`, ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "strikeout", swinging: false } });
+      state = reduceEvents(perfectSetup, events);
+    }
+    // Bottom 1: home scores 1 on a walk + wild pitch, then 3 outs. Game ends because home leads.
+    events.push({ id: "w1", ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "walk" } });
+    state = reduceEvents(perfectSetup, events);
+    events.push({ id: "wp", ts: "", type: "runner", input: { kind: "wild-pitch", froms: [1] } });
+    state = reduceEvents(perfectSetup, events);
+    for (let i = 0; i < 3; i++) {
+      events.push({ id: `khi${i}`, ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "strikeout", swinging: false } });
+      state = reduceEvents(perfectSetup, events);
+    }
+    expect(state.over).toBe(true);
+    expect(state.winner).toBe("home");
+    expect(gameFeats(state)).toContainEqual({ team: "home", feat: "perfect-game" });
+  });
+
+  it("detects a no-hitter when a runner reaches but no hits are allowed", () => {
+    const noHitSetup: GameSetup = { ...setup, innings: 1 };
+    const events: GameEvent[] = [];
+    let state = createInitialState(noHitSetup);
+    // Top 1: 3 outs.
+    for (let i = 0; i < 3; i++) {
+      events.push({ id: `ao${i}`, ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "strikeout", swinging: false } });
+      state = reduceEvents(noHitSetup, events);
+    }
+    // Bottom 1: home walks a runner, then a WP scores him, then 3 outs. Away never got a hit.
+    events.push({ id: "w1", ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "walk" } });
+    state = reduceEvents(noHitSetup, events);
+    events.push({ id: "wp", ts: "", type: "runner", input: { kind: "wild-pitch", froms: [1] } });
+    state = reduceEvents(noHitSetup, events);
+    for (let i = 0; i < 3; i++) {
+      events.push({ id: `khi${i}`, ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "strikeout", swinging: false } });
+      state = reduceEvents(noHitSetup, events);
+    }
+    expect(gameFeats(state)).toContainEqual({ team: "home", feat: "no-hitter" });
+    expect(gameFeats(state)).not.toContainEqual({ team: "home", feat: "perfect-game" });
+  });
+
+  it("detects a shutout", () => {
+    const shutoutSetup: GameSetup = { ...setup, innings: 1 };
+    const events: GameEvent[] = [];
+    let state = createInitialState(shutoutSetup);
+    // Top 1: away gets a single but is left stranded, then 3 outs.
+    events.push({ id: "as", ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "hit", bases: 1 } });
+    state = reduceEvents(shutoutSetup, events);
+    for (let i = 0; i < 3; i++) {
+      events.push({ id: `ao${i}`, ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "strikeout", swinging: false } });
+      state = reduceEvents(shutoutSetup, events);
+    }
+    // Bottom 1: home scores 1, then 3 outs. Game ends.
+    events.push({ id: "hhr", ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "hit", bases: 4 } });
+    state = reduceEvents(shutoutSetup, events);
+    for (let i = 0; i < 3; i++) {
+      events.push({ id: `khi${i}`, ts: "", type: "play", batterId: currentBatterId(state), input: { kind: "strikeout", swinging: false } });
+      state = reduceEvents(shutoutSetup, events);
+    }
+    expect(gameFeats(state)).toContainEqual({ team: "home", feat: "shutout" });
+    expect(gameFeats(state)).not.toContainEqual({ team: "home", feat: "no-hitter" });
+  });
 });

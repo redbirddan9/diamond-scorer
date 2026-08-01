@@ -38,12 +38,13 @@ function cleanEvent(ev: GameEvent): GameEvent | null {
   }
 }
 
-function cleanRunnerEvent(input: RunnerInput): boolean {
+function cleanRunnerEvent(input: RunnerInput | undefined): boolean {
   // Passed balls are treated like errors for earned run purposes.
-  return input.kind !== "passed-ball";
+  return input ? input.kind !== "passed-ball" : false;
 }
 
-function cleanBatterInput(input: BatterInput): BatterInput | null {
+function cleanBatterInput(input: BatterInput | undefined): BatterInput | null {
+  if (!input) return null;
   switch (input.kind) {
     case "hit": {
       // Remove the secondary error on a legitimate hit; keep the hit itself.

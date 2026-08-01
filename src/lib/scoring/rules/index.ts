@@ -25,6 +25,8 @@ export { classifyBatterPlay, classifyRunnerPlay } from "./classify";
 export { inferRetired } from "./infer-outs";
 export { calculateRBIs } from "./rbi";
 export { validatePlay } from "./validate";
+export { pitchingDecisions } from "./saves";
+export { gameFeats } from "./feats";
 
 type Overrides = Partial<Record<RunnerKey, Destination>>;
 

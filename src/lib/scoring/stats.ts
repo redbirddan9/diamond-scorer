@@ -1,5 +1,6 @@
 /** Statistics derived entirely from the reduced game state. */
 import type { GameState, SubRecord, TeamSide } from "./types";
+import { pitchingDecisions } from "./rules/saves";
 
 export interface BattingLine {
   playerId: string;
@@ -43,6 +44,10 @@ export interface PitchingLine {
   inheritedRunnersScored: number;
   /** Runners this pitcher left on base who scored after he left. */
   bequeathedRunnersScored: number;
+  saveOpportunities: number;
+  saves: number;
+  blownSaves: number;
+  holds: number;
 }
 
 export interface FieldingLine {
@@ -93,6 +98,10 @@ const emptyPitching = (playerId: string): PitchingLine => ({
   inheritedRunners: 0,
   inheritedRunnersScored: 0,
   bequeathedRunnersScored: 0,
+  saveOpportunities: 0,
+  saves: 0,
+  blownSaves: 0,
+  holds: 0,
 });
 
 const ratio = (n: number, d: number) => (d > 0 ? n / d : 0);
@@ -201,6 +210,16 @@ export function pitchingStats(state: GameState, side: TeamSide): PitchingLine[] 
         prevLine.bequeathedRunnersScored += 1;
       }
     }
+  }
+
+  // Saves, blown saves, and holds come from the save-situation module.
+  for (const d of pitchingDecisions(state, side)) {
+    const line = lines.get(d.pitcherId);
+    if (!line) continue;
+    line.saveOpportunities = d.saveOpportunities;
+    line.saves = d.saves;
+    line.blownSaves = d.blownSaves;
+    line.holds = d.holds;
   }
 
   // Ensure the current pitcher is listed even if no plays have been logged yet.

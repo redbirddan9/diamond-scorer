@@ -12,6 +12,7 @@ import { AbsPanel } from "@/components/scorebook/AbsPanel";
 import { SubstitutionPanel } from "@/components/scorebook/SubstitutionPanel";
 import { PositionAssign, pendingFielders } from "@/components/scorebook/PositionAssign";
 import { GameSummary } from "@/components/scorebook/GameSummary";
+import { PrintSheet } from "@/components/scorebook/PrintSheet";
 import { ThemeToggle } from "@/components/scorebook/ThemeToggle";
 import { TeamMark } from "@/components/scorebook/TeamMark";
 import { useGame, newId } from "@/lib/useGame";
@@ -234,7 +235,9 @@ function GameScreen() {
   };
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-[820px] px-1.5 pb-4 pt-1.5">
+    <>
+    <PrintSheet state={state} />
+    <main className="mx-auto min-h-screen w-full max-w-[820px] px-1.5 pb-4 pt-1.5 print:hidden">
       <header className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 print:hidden">
         <Button asChild variant="ghost" size="icon" className="h-8 w-8">
           <Link to="/" aria-label="Back to library">

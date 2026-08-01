@@ -1,47 +1,31 @@
-Add an MLB team picker to game setup with offline cap-style monogram logos, while keeping free-text entry for non-MLB teams.
+Add a proper print/PDF output for a finished game: 3 pages, each on its own sheet.
 
-## 1. Team data (new `src/lib/teams/mlb.ts`)
+## Pages
 
-A static array of all 30 clubs, each with:
+1. Away team scorecard (line score header + away scorebook grid)
+2. Home team scorecard (line score header + home scorebook grid)
+3. Full box score (line score, away batting/pitching/fielding, home batting/pitching/fielding, plus game info/decisions and feats from the summary)
 
-- `id` (e.g. `LAD`), `city` ("Los Angeles"), `nickname` ("Dodgers"), `name` ("Los Angeles Dodgers")
-- `cap` — cap letters for the monogram ("LA", "NY", "SD", "STL", …)
-- `primary` / `secondary` — team colors as raw hex, used only inside the logo mark
-- `division` for grouping in the picker
+## How it works
 
-No trademark image files are shipped; the mark is drawn from data.
+Currently the Print button just calls `window.print()`, which prints whatever tab happens to be open with screen styling. Instead:
 
-## 2. Logo component (new `src/components/scorebook/TeamMark.tsx`)
-
-Renders an inline SVG roundel: filled circle in the club's primary color, cap letters in the secondary color, sized via a `size` prop (16 / 24 / 32 px for the three placements). For manually entered teams it falls back to a neutral, design-token-colored circle with the first 1–2 letters of the typed name, so non-MLB teams look consistent.
-
-## 3. Setup screen (`src/routes/new.tsx`)
-
-Replace each of the two plain team inputs with a compact team field:
-
-- A touch-friendly picker button showing the current mark + team name; tapping opens a searchable list of the 30 clubs grouped by division, with rows large enough for the 7" screen.
-- A "Custom team…" row at the bottom of the list switches that slot back to the existing free-text input (with the current recall datalist intact).
-- Choosing an MLB club fills the team name and records its id.
-
-Nothing about lineups, pitchers, or the rest of the form changes.
-
-## 4. Persisting the identity (`src/lib/scoring/types.ts`)
-
-Add optional `teamId?: string` to `TeamSetup`. Optional so existing stored games keep working; when absent, the neutral fallback mark is used.
-
-## 5. Display placements
-
-- `src/routes/game.$gameId.tsx` — marks beside the away/home names in the scoring header and in the away/home tab triggers.
-- `src/components/scorebook/BoxScore.tsx` and `GameSummary.tsx` — marks beside each team name in the score line/headers.
-- `src/routes/index.tsx` — marks beside each saved game row ("Away at Home").
+- New `src/components/scorebook/PrintSheet.tsx` — a print-only block rendered once in the game route (`hidden print:block`). It renders all three sections regardless of the active tab, so the output never depends on which tab is visible.
+- Each section wrapped in a page container with `break-after: page` (last one without), so pages break exactly at the boundaries.
+- Print rules added to `src/styles.css` inside `@media print`:
+  - `@page { size: letter landscape; margin: 0.4in }` — landscape so the 9+ inning grid fits without clipping.
+  - Force light colors for ink (white background, black text/borders) while leaving the on-screen dark theme untouched.
+  - Hide the live app shell in print (`main > *` except the print sheet) so the screen UI doesn't leak into the PDF.
+  - Remove `overflow-x-auto` scroll clipping in print so wide tables print fully; scale the scorecard grid down if needed to fit page width.
+- The existing "Print" button is relabeled "PDF" (still `window.print()`), which via the browser's "Save as PDF" destination produces the file fully offline.
 
 ## Technical details
 
-- Colors for the logo mark are intentionally raw hex inside `mlb.ts`/`TeamMark` (they are brand data, not theme values); everything else keeps using semantic design tokens.
-- Fully offline: pure data + inline SVG, no network fetch, no new dependencies.
-- Team resolution helper `teamById(id)` returns `undefined` for custom teams; all UI handles that path.
+- `LineScore`, `ScorebookGrid`, `BoxScore`, and `GameSummary` are reused as-is; no scoring, stats, or engine code changes.
+- Box score tables get `break-inside: avoid` per table so a table isn't split mid-page if content grows; page 3 may spill to a 4th sheet only when rosters are unusually long.
+- Verification: run a headless print-to-PDF of a scored game and visually check each rendered page for clipping, contrast, and correct page breaks.
 
 ## Out of scope
 
-- Official logo artwork, wordmarks, or team-colored theming of the app chrome.
-- Auto-filling MLB rosters or ballparks from the team selection.
+- Changing CSV/JSON exports.
+- A custom PDF renderer (no new dependencies) — the browser print pipeline stays the mechanism.

@@ -249,9 +249,18 @@
   .print-fill {
     flex: 1 1 auto;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   .print-fill > div,
+  .print-fill > section {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
   .print-fill table {
     height: 100% !important;
   }
@@ -263,14 +272,9 @@
   }
 
   /* Box score: spread the batting/pitching/fielding tables down the page. */
-  .print-fill section {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-  }
-
-  .print-fill section > div {
+  .print-fill > section > div {
     flex: 1 1 auto;
+    min-height: 0;
   }
 
   .print-fill td,

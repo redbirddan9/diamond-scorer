@@ -1,77 +1,47 @@
-Implement save-rule validation, blown-save/hold tracking, and live game-feat detection (no-hitter, perfect game, shutout) in the box score and game summary.
+Add an MLB team picker to game setup with offline cap-style monogram logos, while keeping free-text entry for non-MLB teams.
 
-## Why this matters
+## 1. Team data (new `src/lib/teams/mlb.ts`)
 
-Pitching decisions (W/L/S) are already assignable, but the app does not verify whether a save is actually valid under MLB Rule 9.19, nor does it track blown saves, holds, or notable game achievements. Adding these makes the box score honest and surfaces no-hitter/perfect game/shutout status automatically as the game progresses.
+A static array of all 30 clubs, each with:
 
-## Prerequisite: fix a current runtime error
+- `id` (e.g. `LAD`), `city` ("Los Angeles"), `nickname` ("Dodgers"), `name` ("Los Angeles Dodgers")
+- `cap` — cap letters for the monogram ("LA", "NY", "SD", "STL", …)
+- `primary` / `secondary` — team colors as raw hex, used only inside the logo mark
+- `division` for grouping in the picker
 
-The home page is throwing `Cannot read properties of undefined (reading 'kind')` at `src/lib/scoring/rules/earned-runs.ts:21`. The earned-run reconstruction function calls `cleanBatterInput(ev.input)` on play events that may have a missing `input` in legacy/corrupted data. I will add a guard so `cleanBatterInput` and `cleanRunnerEvent` return `null` safely when `input` is undefined, which prevents the crash before the save/game-feat work begins.
+No trademark image files are shipped; the mark is drawn from data.
 
-## Plan
+## 2. Logo component (new `src/components/scorebook/TeamMark.tsx`)
 
-### 1. Save opportunities and eligibility
+Renders an inline SVG roundel: filled circle in the club's primary color, cap letters in the secondary color, sized via a `size` prop (16 / 24 / 32 px for the three placements). For manually entered teams it falls back to a neutral, design-token-colored circle with the first 1–2 letters of the typed name, so non-MLB teams look consistent.
 
-Add a new `src/lib/scoring/rules/saves.ts` module that is the single source of truth for save/hold/blown-save logic.
+## 3. Setup screen (`src/routes/new.tsx`)
 
-- **Save situation**: pitcher enters with his team leading and either (a) the lead is 3 runs or fewer, or (b) the tying run is on base, at bat, or on deck.
-- **Save eligibility** (Rule 9.19): the pitcher is the finishing pitcher, is not the winning pitcher, his team wins, and he entered in a save situation.
-- **Blown save**: a pitcher enters in a save situation and later leaves (or the game ends) while no longer holding the lead.
-- **Hold**: a pitcher enters in a save situation, records at least one out, leaves with the lead intact, and does not get the win.
+Replace each of the two plain team inputs with a compact team field:
 
-The module will read `state.subLog` to know when pitchers entered and left, and read `state.plays` to know the score at those points.
+- A touch-friendly picker button showing the current mark + team name; tapping opens a searchable list of the 30 clubs grouped by division, with rows large enough for the 7" screen.
+- A "Custom team…" row at the bottom of the list switches that slot back to the existing free-text input (with the current recall datalist intact).
+- Choosing an MLB club fills the team name and records its id.
 
-### 2. Update pitching statistics
+Nothing about lineups, pitchers, or the rest of the form changes.
 
-Extend `PitchingLine` in `src/lib/scoring/stats.ts` with:
+## 4. Persisting the identity (`src/lib/scoring/types.ts`)
 
-- `saveOpportunities`
-- `saves`
-- `blownSaves`
-- `holds`
+Add optional `teamId?: string` to `TeamSetup`. Optional so existing stored games keep working; when absent, the neutral fallback mark is used.
 
-Update `pitchingStats()` to compute these by walking the substitution and play logs in chronological order, using the helpers from `saves.ts`. Keep the existing `IR`, `IRS`, and `BRS` columns untouched.
+## 5. Display placements
 
-### 3. Game-feat detection
-
-Add a `src/lib/scoring/rules/feats.ts` module that returns a list of achievements for the game:
-
-- **No-hitter**: one team allows 0 hits in a completed game.
-- **Perfect game**: one team allows no opposing runner to reach base in a completed game (no hits, walks, HBP, errors, catcher's interference, or other reach).
-- **Shutout**: one team wins while allowing 0 runs.
-
-Expose a `gameFeats(state)` function that returns labels such as `{ team: "away", feat: "perfect-game" }`.
-
-### 4. UI updates
-
-In `src/components/scorebook/BoxScore.tsx`:
-
-- Add `SV`, `BS`, and `HLD` columns to the pitching table.
-- Keep `W/L/S` badges from the existing decisions UI.
-
-In `src/components/scorebook/GameSummary.tsx`:
-
-- Display any `gameFeats` as badges above the final score (e.g., "Perfect Game", "No-Hitter", "Shutout").
-- Keep the pitching-decisions section but do not block it; save validation is informational.
-
-### 5. Tests
-
-Add tests to `src/lib/scoring/engine.test.ts` covering:
-
-- A valid save (3-run lead, 1 inning pitched, not the winning pitcher).
-- A blown save (pitcher enters with a 1-run lead and the lead is lost).
-- A hold (setup man gets an out and leaves with the lead).
-- A perfect game detected at the end of a game.
-- A no-hitter that is not a perfect game.
-- A shutout.
+- `src/routes/game.$gameId.tsx` — marks beside the away/home names in the scoring header and in the away/home tab triggers.
+- `src/components/scorebook/BoxScore.tsx` and `GameSummary.tsx` — marks beside each team name in the score line/headers.
+- `src/routes/index.tsx` — marks beside each saved game row ("Away at Home").
 
 ## Technical details
 
-- Save/hold logic depends on the existing `subLog` and `plays` arrays, so no new event types are needed.
-- The manual `PitchingDecisions` object in `GameSetup` remains the source of truth for W/L/S; the new save-eligibility logic only computes the derived `SV/BS/HLD` counts.
-- The game-feat detection runs after the game is final; it reads the reduced `GameState` rather than adding new events.
+- Colors for the logo mark are intentionally raw hex inside `mlb.ts`/`TeamMark` (they are brand data, not theme values); everything else keeps using semantic design tokens.
+- Fully offline: pure data + inline SVG, no network fetch, no new dependencies.
+- Team resolution helper `teamById(id)` returns `undefined` for custom teams; all UI handles that path.
 
 ## Out of scope
 
-- Changing the manual W/L/S picker; we will still let the scorer assign decisions, but the derived save stats will make invalid choices obvious.
-- DH enforcement, batting out of order, or infield fly rule; those are separate features and will be deferred.
+- Official logo artwork, wordmarks, or team-colored theming of the app chrome.
+- Auto-filling MLB rosters or ballparks from the team selection.

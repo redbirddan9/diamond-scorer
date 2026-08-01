@@ -18,7 +18,8 @@ interface Props {
 export function TeamPicker({ label, teamId, name, recallListId, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const custom = !teamId;
+  // MLB-first: start on the club picker unless a custom name was already typed.
+  const [manual, setManual] = useState(() => !teamId && name.trim().length > 0);
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -31,6 +32,7 @@ export function TeamPicker({ label, teamId, name, recallListId, onChange }: Prop
   const pick = (team: MlbTeam) => {
     onChange({ teamId: team.id, name: team.name });
     setQuery("");
+    setManual(false);
     setOpen(false);
   };
 
@@ -50,7 +52,7 @@ export function TeamPicker({ label, teamId, name, recallListId, onChange }: Prop
   return (
     <div className="space-y-1">
       <Label className="text-xs uppercase tracking-wide text-muted-foreground">{label}</Label>
-      {custom ? (
+      {manual ? (
         <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-1">
           <Input
             className="h-11"
@@ -63,7 +65,10 @@ export function TeamPicker({ label, teamId, name, recallListId, onChange }: Prop
             type="button"
             variant="outline"
             className="h-11 px-2 text-xs"
-            onClick={() => setOpen((o) => !o)}
+            onClick={() => {
+              setManual(false);
+              setOpen(true);
+            }}
           >
             MLB
           </Button>
@@ -75,8 +80,14 @@ export function TeamPicker({ label, teamId, name, recallListId, onChange }: Prop
           className="h-11 w-full justify-start gap-2 font-medium"
           onClick={() => setOpen((o) => !o)}
         >
-          <TeamMark teamId={teamId} name={name} size={22} />
-          <span className="truncate">{name}</span>
+          {name ? (
+            <>
+              <TeamMark teamId={teamId} name={name} size={22} />
+              <span className="truncate">{name}</span>
+            </>
+          ) : (
+            <span className="truncate text-muted-foreground">Select team…</span>
+          )}
         </Button>
       )}
 
@@ -113,7 +124,8 @@ export function TeamPicker({ label, teamId, name, recallListId, onChange }: Prop
             variant="ghost"
             className="mt-1 h-10 w-full justify-start text-sm"
             onClick={() => {
-              onChange({ teamId: undefined, name: custom ? name : "" });
+              onChange({ teamId: undefined, name: teamId ? "" : name });
+              setManual(true);
               setQuery("");
               setOpen(false);
             }}

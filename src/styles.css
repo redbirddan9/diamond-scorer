@@ -295,7 +295,7 @@
   /* Fixed, generous row height keeps the diamonds square like paper. */
   .print-scorecard tbody td,
   .print-scorecard tbody th {
-    height: 0.72in !important;
+    height: 0.86in !important;
   }
 
   /* Box score: spread the batting/pitching/fielding tables down the page. */

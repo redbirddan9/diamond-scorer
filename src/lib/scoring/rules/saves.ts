@@ -158,8 +158,8 @@ export function pitchingDecisions(state: GameState, side: TeamSide): PitchingDec
       summary.blownSaves += 1;
     }
 
-    // Hold: entered a save situation, recorded an out, left with the lead, not the winner.
-    if (enteredSaveSituation && app.outs >= 1 && leftWithLead && !isWinning && isReliever) {
+    // Hold: entered a save situation, recorded an out, left with the lead, not the winner, and not the finishing pitcher.
+    if (enteredSaveSituation && app.outs >= 1 && leftWithLead && !isWinning && isReliever && !isFinishing) {
       summary.holds += 1;
     }
 

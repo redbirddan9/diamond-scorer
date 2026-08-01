@@ -40,7 +40,7 @@ export function PrintSheet({ state }: { state: GameState }) {
     <section className="print-page">
       {heading(`${setup[side].name} scorecard`)}
       <LineScore state={state} />
-      <div className="print-fill mt-2">
+      <div className="print-fill print-scorecard mt-4">
         <ScorebookGrid state={state} side={side} activeSlot={null} />
       </div>
     </section>

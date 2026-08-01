@@ -233,7 +233,7 @@
 
   /* Team names in the line score must not clip at print font size. */
   .print-page table.table-fixed th:first-child {
-    width: 130px !important;
+    width: 16% !important;
   }
 
   .print-page section > div {

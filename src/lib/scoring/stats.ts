@@ -212,6 +212,16 @@ export function pitchingStats(state: GameState, side: TeamSide): PitchingLine[] 
     }
   }
 
+  // Saves, blown saves, and holds come from the save-situation module.
+  for (const d of pitchingDecisions(state, side)) {
+    const line = lines.get(d.pitcherId);
+    if (!line) continue;
+    line.saveOpportunities = d.saveOpportunities;
+    line.saves = d.saves;
+    line.blownSaves = d.blownSaves;
+    line.holds = d.holds;
+  }
+
   // Ensure the current pitcher is listed even if no plays have been logged yet.
   get(state.pitcher[side]);
 

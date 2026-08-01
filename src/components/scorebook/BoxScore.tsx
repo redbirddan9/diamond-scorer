@@ -6,6 +6,7 @@ import {
   teamTotals,
 } from "@/lib/scoring/stats";
 import type { GameState, TeamSide } from "@/lib/scoring/types";
+import { TeamMark } from "@/components/scorebook/TeamMark";
 
 export function LineScore({ state }: { state: GameState }) {
   const innings = Math.max(state.setup.innings, state.lineScore.away.length, state.lineScore.home.length);
@@ -13,7 +14,16 @@ export function LineScore({ state }: { state: GameState }) {
     const totals = teamTotals(state, side);
     return (
       <tr>
-        <th className="border border-border p-2 text-left font-medium">{state.setup[side].name}</th>
+        <th className="border border-border p-2 text-left font-medium">
+          <span className="flex items-center gap-1.5">
+            <TeamMark
+              teamId={state.setup[side].teamId}
+              name={state.setup[side].name}
+              size={18}
+            />
+            <span className="truncate">{state.setup[side].name}</span>
+          </span>
+        </th>
         {Array.from({ length: innings }, (_, i) => (
           <td key={i} className="border border-border p-2 text-center font-mono">
             {state.lineScore[side][i] ?? (isPlayed(state, side, i + 1) ? 0 : "")}

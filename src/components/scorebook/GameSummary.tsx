@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { BoxScore, LineScore } from "./BoxScore";
+import { TeamMark } from "./TeamMark";
 import { gameFeats } from "@/lib/scoring/rules";
 import { pitchingStats } from "@/lib/scoring/stats";
 import type { GameSetup, GameState, TeamSide } from "@/lib/scoring/types";
@@ -97,8 +98,12 @@ export function GameSummary({ state, onSaveInfo }: Props) {
     <section className="space-y-4">
       <div className="rounded-md border border-border bg-secondary p-4 text-center">
         <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Final</p>
-        <p className="mt-1 text-2xl font-semibold">
-          {setup.away.name} {state.score.away} — {state.score.home} {setup.home.name}
+        <p className="mt-1 flex flex-wrap items-center justify-center gap-2 text-2xl font-semibold">
+          <TeamMark teamId={setup.away.teamId} name={setup.away.name} size={28} />
+          <span>
+            {setup.away.name} {state.score.away} — {state.score.home} {setup.home.name}
+          </span>
+          <TeamMark teamId={setup.home.teamId} name={setup.home.name} size={28} />
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
           {winner ? `${setup[winner].name} win` : "Tie game"} in {Math.max(state.inning - 1, setup.innings)} innings

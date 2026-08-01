@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { createGame, loadTemplates, saveTemplate } from "@/lib/storage/games";
 import { loadRecall, rememberRecall } from "@/lib/storage/recall";
 import { PositionGrid } from "@/components/scorebook/PositionGrid";
+import { TeamPicker } from "@/components/scorebook/TeamPicker";
 import { newId } from "@/lib/useGame";
 import type { GameSetup, Player, TeamSetup } from "@/lib/scoring/types";
 
@@ -48,9 +49,10 @@ function NewGame() {
   const [showMore, setShowMore] = useState(false);
   const [useDh, setUseDh] = useState(true);
   const [trackPitches, setTrackPitches] = useState(false);
+  const [teamIds, setTeamIds] = useState<{ away?: string; home?: string }>({});
   const [meta, setMeta] = useState({
-    awayName: "Away",
-    homeName: "Home",
+    awayName: "",
+    homeName: "",
     date: new Date().toISOString().slice(0, 10),
     stadium: "",
     city: "",
@@ -83,7 +85,12 @@ function NewGame() {
     });
   }, []);
 
-  const buildTeam = (name: string, players: Player[], pitcherName: string): TeamSetup => {
+  const buildTeam = (
+    name: string,
+    players: Player[],
+    pitcherName: string,
+    teamId?: string,
+  ): TeamSetup => {
     const filled = players.map((p, i) => ({
       ...p,
       name: p.name.trim() || `Player ${i + 1}`,
@@ -92,7 +99,13 @@ function NewGame() {
     const lineup = filled.map((p) => p.id);
     const inLineupPitcher = filled.find((p) => p.position === "P");
     if (!useDh && inLineupPitcher) {
-      return { name: name.trim() || "Team", players: filled, lineup, pitcherId: inLineupPitcher.id };
+      return {
+        name: name.trim() || "Team",
+        teamId,
+        players: filled,
+        lineup,
+        pitcherId: inLineupPitcher.id,
+      };
     }
     const pitcher: Player = {
       id: `${name}-p-${Math.random().toString(36).slice(2, 7)}`,
@@ -102,6 +115,7 @@ function NewGame() {
     };
     return {
       name: name.trim() || "Team",
+      teamId,
       players: [...filled, pitcher],
       lineup,
       pitcherId: pitcher.id,
@@ -127,10 +141,11 @@ function NewGame() {
         third: meta.umpThird,
       },
       innings: Number(meta.innings) || 9,
-      away: buildTeam(meta.awayName, away, meta.awayPitcher),
-      home: buildTeam(meta.homeName, home, meta.homePitcher),
+      away: buildTeam(meta.awayName || "Away", away, meta.awayPitcher, teamIds.away),
+      home: buildTeam(meta.homeName || "Home", home, meta.homePitcher, teamIds.home),
     };
-    rememberRecall("teams", meta.awayName, meta.homeName);
+    if (!teamIds.away) rememberRecall("teams", meta.awayName);
+    if (!teamIds.home) rememberRecall("teams", meta.homeName);
     rememberRecall("stadiums", meta.stadium);
     rememberRecall("cities", meta.city);
     rememberRecall("players", ...[...away, ...home].map((p) => p.name));
@@ -169,8 +184,26 @@ function NewGame() {
 
       <section className="mt-6 space-y-3">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {field("awayName", "Away Team", "text", "recall-teams")}
-          {field("homeName", "Home Team", "text", "recall-teams")}
+          <TeamPicker
+            label="Away Team"
+            teamId={teamIds.away}
+            name={meta.awayName}
+            recallListId="recall-teams"
+            onChange={({ teamId, name }) => {
+              setTeamIds((t) => ({ ...t, away: teamId }));
+              setMeta((m) => ({ ...m, awayName: name }));
+            }}
+          />
+          <TeamPicker
+            label="Home Team"
+            teamId={teamIds.home}
+            name={meta.homeName}
+            recallListId="recall-teams"
+            onChange={({ teamId, name }) => {
+              setTeamIds((t) => ({ ...t, home: teamId }));
+              setMeta((m) => ({ ...m, homeName: name }));
+            }}
+          />
           {field("date", "Date", "date")}
           {field("stadium", "Stadium", "text", "recall-stadiums")}
           {field("city", "City", "text", "recall-cities")}

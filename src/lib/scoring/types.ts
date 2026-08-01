@@ -27,6 +27,8 @@ export interface Player {
 
 export interface TeamSetup {
   name: string;
+  /** MLB club id when picked from the team list; absent for custom teams. */
+  teamId?: string;
   players: Player[];
   /** Player ids in batting order. */
   lineup: string[];

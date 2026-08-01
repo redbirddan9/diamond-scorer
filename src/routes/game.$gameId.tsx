@@ -483,7 +483,7 @@ function GameScreen() {
           <Redo2 className="mr-1 h-4 w-4" /> Redo
         </Button>
         <Button variant="ghost" className="h-9" onClick={printScorecard}>
-          <Printer className="mr-1 h-4 w-4" /> Print
+          <Printer className="mr-1 h-4 w-4" /> PDF
         </Button>
         <Button variant="ghost" className="h-9" onClick={() => exportCsv(session.game!, state)}>
           <Download className="mr-1 h-4 w-4" /> CSV
@@ -496,6 +496,7 @@ function GameScreen() {
         </span>
       </div>
     </main>
+    </>
   );
 }
 

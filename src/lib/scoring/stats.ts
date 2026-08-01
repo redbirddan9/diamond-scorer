@@ -44,6 +44,10 @@ export interface PitchingLine {
   inheritedRunnersScored: number;
   /** Runners this pitcher left on base who scored after he left. */
   bequeathedRunnersScored: number;
+  saveOpportunities: number;
+  saves: number;
+  blownSaves: number;
+  holds: number;
 }
 
 export interface FieldingLine {
@@ -94,6 +98,10 @@ const emptyPitching = (playerId: string): PitchingLine => ({
   inheritedRunners: 0,
   inheritedRunnersScored: 0,
   bequeathedRunnersScored: 0,
+  saveOpportunities: 0,
+  saves: 0,
+  blownSaves: 0,
+  holds: 0,
 });
 
 const ratio = (n: number, d: number) => (d > 0 ? n / d : 0);

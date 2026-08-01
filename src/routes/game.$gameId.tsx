@@ -255,7 +255,15 @@ function GameScreen() {
           <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Final</span>
           <span className="ml-2 text-sm font-semibold">
             {state.winner ? `${state.setup[state.winner].name} win` : "Tie game"} —{" "}
-            {state.setup.away.name} {state.score.away}, {state.setup.home.name} {state.score.home}
+            <span className="inline-flex items-center gap-1 align-middle">
+              <TeamMark teamId={state.setup.away.teamId} name={state.setup.away.name} size={16} />
+              {state.setup.away.name} {state.score.away}
+            </span>
+            {", "}
+            <span className="inline-flex items-center gap-1 align-middle">
+              <TeamMark teamId={state.setup.home.teamId} name={state.setup.home.name} size={16} />
+              {state.setup.home.name} {state.score.home}
+            </span>
           </span>
         </div>
       )}
@@ -392,8 +400,14 @@ function GameScreen() {
 
       <Tabs value={tab} onValueChange={setTab} className="mt-2">
         <TabsList className="grid w-full grid-cols-4 print:hidden">
-          <TabsTrigger value="away">{state.setup.away.name}</TabsTrigger>
-          <TabsTrigger value="home">{state.setup.home.name}</TabsTrigger>
+          <TabsTrigger value="away" className="gap-1.5">
+            <TeamMark teamId={state.setup.away.teamId} name={state.setup.away.name} size={16} />
+            <span className="truncate">{state.setup.away.name}</span>
+          </TabsTrigger>
+          <TabsTrigger value="home" className="gap-1.5">
+            <TeamMark teamId={state.setup.home.teamId} name={state.setup.home.name} size={16} />
+            <span className="truncate">{state.setup.home.name}</span>
+          </TabsTrigger>
           <TabsTrigger value="box">Box</TabsTrigger>
           <TabsTrigger value="plays">Plays</TabsTrigger>
         </TabsList>

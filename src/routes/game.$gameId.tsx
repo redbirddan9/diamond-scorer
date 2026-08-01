@@ -13,6 +13,7 @@ import { SubstitutionPanel } from "@/components/scorebook/SubstitutionPanel";
 import { PositionAssign, pendingFielders } from "@/components/scorebook/PositionAssign";
 import { GameSummary } from "@/components/scorebook/GameSummary";
 import { ThemeToggle } from "@/components/scorebook/ThemeToggle";
+import { TeamMark } from "@/components/scorebook/TeamMark";
 import { useGame, newId } from "@/lib/useGame";
 import {
   absCountResult,

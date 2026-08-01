@@ -7,6 +7,7 @@ import { deleteGame, listGames, saveGame } from "@/lib/storage/games";
 import { reduceEvents } from "@/lib/scoring/engine";
 import type { StoredGame } from "@/lib/scoring/types";
 import { ThemeToggle } from "@/components/scorebook/ThemeToggle";
+import { TeamMark } from "@/components/scorebook/TeamMark";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -107,8 +108,12 @@ function Library() {
                 params={{ gameId: game.id }}
                 className="min-w-0"
               >
-                <p className="truncate font-semibold">
-                  {game.setup.away.name} at {game.setup.home.name}
+                <p className="flex items-center gap-1.5 truncate font-semibold">
+                  <TeamMark teamId={game.setup.away.teamId} name={game.setup.away.name} size={18} />
+                  <span className="truncate">
+                    {game.setup.away.name} at {game.setup.home.name}
+                  </span>
+                  <TeamMark teamId={game.setup.home.teamId} name={game.setup.home.name} size={18} />
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
                   {game.setup.date}

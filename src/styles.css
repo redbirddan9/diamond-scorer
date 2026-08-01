@@ -182,7 +182,7 @@
 @media print {
   @page {
     size: letter portrait;
-    margin: 0.35in;
+    margin: 0.6in;
   }
 
   html,
@@ -196,7 +196,7 @@
     break-after: page;
     page-break-after: always;
     /* letter height minus @page margins: fill the whole sheet */
-    height: 10.3in;
+    height: 9.8in;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -270,9 +270,25 @@
     height: 100% !important;
   }
 
-  /* Scorecard cells divide the remaining height evenly instead of h-14. */
+  /* Scorecard cells breathe, but stay proportional so diamonds read square. */
   .print-fill tbody td,
   .print-fill tbody th {
+    height: auto !important;
+    max-height: 0.62in !important;
+  }
+
+  /* Leftover vertical space becomes bottom whitespace, not giant cells. */
+  .print-fill > div {
+    justify-content: flex-start;
+  }
+
+  /* Paper-scorebook framing: thin outer rule + a little inner padding. */
+  .print-scorecard {
+    border: 1px solid #000;
+    padding: 0.12in;
+  }
+
+  .print-scorecard table {
     height: auto !important;
   }
 
@@ -284,8 +300,8 @@
 
   .print-fill td,
   .print-fill section th {
-    padding-top: 0.35em !important;
-    padding-bottom: 0.35em !important;
+    padding-top: 0.22em !important;
+    padding-bottom: 0.22em !important;
   }
 
   .print-footer {

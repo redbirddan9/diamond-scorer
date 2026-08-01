@@ -141,8 +141,8 @@ function NewGame() {
         third: meta.umpThird,
       },
       innings: Number(meta.innings) || 9,
-      away: buildTeam(meta.awayName, away, meta.awayPitcher, teamIds.away),
-      home: buildTeam(meta.homeName, home, meta.homePitcher, teamIds.home),
+      away: buildTeam(meta.awayName || "Away", away, meta.awayPitcher, teamIds.away),
+      home: buildTeam(meta.homeName || "Home", home, meta.homePitcher, teamIds.home),
     };
     if (!teamIds.away) rememberRecall("teams", meta.awayName);
     if (!teamIds.home) rememberRecall("teams", meta.homeName);

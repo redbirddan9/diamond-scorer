@@ -231,6 +231,11 @@
     overflow: visible !important;
   }
 
+  /* Sticky columns shift rows out of alignment on paper. */
+  .print-page .sticky {
+    position: static !important;
+  }
+
   .print-page table {
     width: 100% !important;
     break-inside: auto;

@@ -6,7 +6,6 @@ import {
   teamTotals,
 } from "@/lib/scoring/stats";
 import type { GameState, TeamSide } from "@/lib/scoring/types";
-import { TeamMark } from "@/components/scorebook/TeamMark";
 
 export function LineScore({ state }: { state: GameState }) {
   const innings = Math.max(state.setup.innings, state.lineScore.away.length, state.lineScore.home.length);
@@ -15,14 +14,7 @@ export function LineScore({ state }: { state: GameState }) {
     return (
       <tr>
         <th className="border border-border p-2 text-left font-medium">
-          <span className="flex items-center gap-1.5">
-            <TeamMark
-              teamId={state.setup[side].teamId}
-              name={state.setup[side].name}
-              size={18}
-            />
-            <span className="truncate">{state.setup[side].name}</span>
-          </span>
+          <span className="truncate">{state.setup[side].name}</span>
         </th>
         {Array.from({ length: innings }, (_, i) => (
           <td key={i} className="border border-border p-2 text-center font-mono">
@@ -32,6 +24,7 @@ export function LineScore({ state }: { state: GameState }) {
         <td className="border border-border bg-secondary p-2 text-center font-mono font-bold">{totals.runs}</td>
         <td className="border border-border bg-secondary p-2 text-center font-mono">{totals.hits}</td>
         <td className="border border-border bg-secondary p-2 text-center font-mono">{totals.errors}</td>
+        <td className="border border-border bg-secondary p-2 text-center font-mono">{totals.lob}</td>
       </tr>
     );
   };
@@ -47,6 +40,7 @@ export function LineScore({ state }: { state: GameState }) {
             <th className="border border-border bg-secondary p-2">R</th>
             <th className="border border-border bg-secondary p-2">H</th>
             <th className="border border-border bg-secondary p-2">E</th>
+            <th className="border border-border bg-secondary p-2">LOB</th>
           </tr>
         </thead>
         <tbody>

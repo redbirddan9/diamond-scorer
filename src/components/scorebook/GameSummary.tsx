@@ -13,11 +13,18 @@ interface Props {
   onSaveInfo: (patch: Partial<GameSetup>) => void;
 }
 
+const FEAT_LABELS = {
+  "perfect-game": "Perfect Game",
+  "no-hitter": "No-Hitter",
+  shutout: "Shutout",
+};
+
 /** Final summary shown once the game ends. */
 export function GameSummary({ state, onSaveInfo }: Props) {
   const setup = state.setup;
   const winner =
     state.winner ?? (state.score.home > state.score.away ? "home" : state.score.away > state.score.home ? "away" : null);
+  const feats = gameFeats(state);
   const [info, setInfo] = useState({
     startTime: setup.startTime ?? "",
     attendance: setup.attendance ?? "",

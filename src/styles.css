@@ -270,26 +270,32 @@
     height: 100% !important;
   }
 
-  /* Scorecard cells breathe, but stay proportional so diamonds read square. */
   .print-fill tbody td,
   .print-fill tbody th {
     height: auto !important;
-    max-height: 0.62in !important;
   }
 
-  /* Leftover vertical space becomes bottom whitespace, not giant cells. */
-  .print-fill > div {
-    justify-content: flex-start;
-  }
-
-  /* Paper-scorebook framing: thin outer rule + a little inner padding. */
+  /* Paper-scorebook framing: thin outer rule, inner padding, hugs its rows. */
   .print-scorecard {
+    flex: 0 0 auto;
     border: 1px solid #000;
-    padding: 0.12in;
+    padding: 0.14in;
+    display: block;
+  }
+
+  .print-scorecard > div {
+    flex: 0 0 auto;
+    display: block;
   }
 
   .print-scorecard table {
     height: auto !important;
+  }
+
+  /* Fixed, generous row height keeps the diamonds square like paper. */
+  .print-scorecard tbody td,
+  .print-scorecard tbody th {
+    height: 0.72in !important;
   }
 
   /* Box score: spread the batting/pitching/fielding tables down the page. */

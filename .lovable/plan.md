@@ -1,69 +1,77 @@
-Plan: Earned Run Reconstruction + Inherited Runners
+Implement save-rule validation, blown-save/hold tracking, and live game-feat detection (no-hitter, perfect game, shutout) in the box score and game summary.
 
-Goals
-1. Make ERA accurate by reconstructing each half-inning without errors/passed balls/catcher's interference to decide earned vs. unearned runs.
-2. Track which pitcher is responsible for runners who score after a pitching change, and expose inherited/bequeathed runner stats.
+## Why this matters
 
-Both features stay inside the rules/stat layer; the scorecard UI and play-entry flow do not change.
+Pitching decisions (W/L/S) are already assignable, but the app does not verify whether a save is actually valid under MLB Rule 9.19, nor does it track blown saves, holds, or notable game achievements. Adding these makes the box score honest and surfaces no-hitter/perfect game/shutout status automatically as the game progresses.
 
-Data model changes
+## Prerequisite: fix a current runtime error
 
-- `src/lib/scoring/types.ts`
-  - Add `EarnedRunRecord` to the resolved `PlayResolution` or compute it at stats time. Keep events immutable; derived state is enough.
-  - Add `runnerResponsibility` to `GameState`: a map of runnerId -> pitcherId who originally allowed that runner to reach base.
-  - Add `BaseRunner` metadata: when a runner reaches base, record the pitcher on the mound and whether the reach was earned.
-  - Add `PitchingDecisions`/`PitchingLine` fields: `inheritedRunners`, `inheritedRunnersScored`, `bequeathedRunnersScored`, `earnedRuns`, `unearnedRuns`.
+The home page is throwing `Cannot read properties of undefined (reading 'kind')` at `src/lib/scoring/rules/earned-runs.ts:21`. The earned-run reconstruction function calls `cleanBatterInput(ev.input)` on play events that may have a missing `input` in legacy/corrupted data. I will add a guard so `cleanBatterInput` and `cleanRunnerEvent` return `null` safely when `input` is undefined, which prevents the crash before the save/game-feat work begins.
 
-Rules engine changes
+## Plan
 
-- `src/lib/scoring/engine.ts`
-  - When a batter reaches base, store the current pitcherId as the responsible pitcher for that runner.
-  - When a runner advances due to error/passed ball/catcher's interference, flag the runner as "tainted" so any run he scores is unearned.
-  - When a pitcher substitution occurs, mark live runners as bequeathed by the outgoing pitcher and inherited by the incoming pitcher.
-  - When a run scores, record the responsible pitcher and whether the runner is tainted.
+### 1. Save opportunities and eligibility
 
-- `src/lib/scoring/rules/earned-runs.ts` (new)
-  - For each half-inning, replay the events with errors/passed balls/catcher's interference removed.
-  - Treat `errorFielders` on batted balls, hit+error, dropped-third errors, and catcher's interference as "no error".
-  - Treat passed-ball advances as "no advance".
-  - Compare reconstructed runs to actual runs in the same half-inning. Runs up to the reconstructed count are earned; excess runs are unearned.
-  - Edge case: if the inning would have ended sooner without the error, all subsequent runs are unearned.
-  - Return a per-play `earnedRuns` count (0..N) that replaces the current boolean.
+Add a new `src/lib/scoring/rules/saves.ts` module that is the single source of truth for save/hold/blown-save logic.
 
-- `src/lib/scoring/rules/validate.ts`
-  - Add validation: a pitcher cannot be charged with more earned runs than his reconstructed inning allows.
+- **Save situation**: pitcher enters with his team leading and either (a) the lead is 3 runs or fewer, or (b) the tying run is on base, at bat, or on deck.
+- **Save eligibility** (Rule 9.19): the pitcher is the finishing pitcher, is not the winning pitcher, his team wins, and he entered in a save situation.
+- **Blown save**: a pitcher enters in a save situation and later leaves (or the game ends) while no longer holding the lead.
+- **Hold**: a pitcher enters in a save situation, records at least one out, leaves with the lead intact, and does not get the win.
 
-Stats changes
+The module will read `state.subLog` to know when pitchers entered and left, and read `state.plays` to know the score at those points.
 
-- `src/lib/scoring/stats.ts`
-  - Update `pitchingStats` to compute earned/unearned runs from the new per-play records.
-  - Add `inheritedRunners` count for each reliever: runners on base when he entered.
-  - Add `inheritedRunnersScored`: runners who scored while he was pitching and were originally put on by the previous pitcher.
-  - Add `bequeathedRunnersScored`: runners originally put on by this pitcher who scored after he left.
-  - Compute `ERA` using `earnedRuns` instead of total runs.
-  - Add `BlownSave`/`QualityStart` detection as optional follow-ups only if trivial to add.
+### 2. Update pitching statistics
 
-UI changes
+Extend `PitchingLine` in `src/lib/scoring/stats.ts` with:
 
-- `src/components/scorebook/BoxScore.tsx` or `GameSummary.tsx`
-  - Pitching line: split `R` into `ER` and `UER`, or show `R / ER`.
-  - Add small columns for `IRS` (inherited runners scored) and `BRS` (bequeathed runners scored) if screen width allows; otherwise show in a detail modal.
-  - Keep the 800x480 touch targets in mind; hide extra columns behind a "pitching details" toggle if needed.
+- `saveOpportunities`
+- `saves`
+- `blownSaves`
+- `holds`
 
-Testing
+Update `pitchingStats()` to compute these by walking the substitution and play logs in chronological order, using the helpers from `saves.ts`. Keep the existing `IR`, `IRS`, and `BRS` columns untouched.
 
-- `src/lib/scoring/engine.test.ts`
-  - Add cases:
-    - Error with two outs, runner scores after error -> run is unearned.
-    - Error with no outs, same inning continues, next batter hits a home run -> HR run is earned.
-    - Pitching change with runner on first; runner scores on next hit -> original pitcher charged with run, reliever gets inherited runner scored.
-    - Passed ball on third strike, runner reaches -> any run scored by that runner is unearned.
+### 3. Game-feat detection
 
-Implementation order
+Add a `src/lib/scoring/rules/feats.ts` module that returns a list of achievements for the game:
 
-1. Data model: `runnerResponsibility`, tainted-runner tracking, per-play `earnedRuns` count.
-2. New `earned-runs.ts` reconstruction engine.
-3. Update `engine.ts` to assign pitcher responsibility and apply reconstruction results.
-4. Update `stats.ts` pitching lines with ER/UER, inherited, bequeathed.
-5. Update box score UI to display the new pitching columns.
-6. Add tests and verify with a full 9-inning game replay.
+- **No-hitter**: one team allows 0 hits in a completed game.
+- **Perfect game**: one team allows no opposing runner to reach base in a completed game (no hits, walks, HBP, errors, catcher's interference, or other reach).
+- **Shutout**: one team wins while allowing 0 runs.
+
+Expose a `gameFeats(state)` function that returns labels such as `{ team: "away", feat: "perfect-game" }`.
+
+### 4. UI updates
+
+In `src/components/scorebook/BoxScore.tsx`:
+
+- Add `SV`, `BS`, and `HLD` columns to the pitching table.
+- Keep `W/L/S` badges from the existing decisions UI.
+
+In `src/components/scorebook/GameSummary.tsx`:
+
+- Display any `gameFeats` as badges above the final score (e.g., "Perfect Game", "No-Hitter", "Shutout").
+- Keep the pitching-decisions section but do not block it; save validation is informational.
+
+### 5. Tests
+
+Add tests to `src/lib/scoring/engine.test.ts` covering:
+
+- A valid save (3-run lead, 1 inning pitched, not the winning pitcher).
+- A blown save (pitcher enters with a 1-run lead and the lead is lost).
+- A hold (setup man gets an out and leaves with the lead).
+- A perfect game detected at the end of a game.
+- A no-hitter that is not a perfect game.
+- A shutout.
+
+## Technical details
+
+- Save/hold logic depends on the existing `subLog` and `plays` arrays, so no new event types are needed.
+- The manual `PitchingDecisions` object in `GameSetup` remains the source of truth for W/L/S; the new save-eligibility logic only computes the derived `SV/BS/HLD` counts.
+- The game-feat detection runs after the game is final; it reads the reduced `GameState` rather than adding new events.
+
+## Out of scope
+
+- Changing the manual W/L/S picker; we will still let the scorer assign decisions, but the derived save stats will make invalid choices obvious.
+- DH enforcement, batting out of order, or infield fly rule; those are separate features and will be deferred.

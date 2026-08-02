@@ -375,6 +375,14 @@ export function PlayEntry({
       const target = e.target as HTMLElement | null;
       if (target && /input|textarea|select/i.test(target.tagName)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      // A focused button owns Enter/Backspace: the nav layer handles those.
+      if (
+        (e.key === "Enter" || e.key === "Backspace") &&
+        document.activeElement instanceof HTMLElement &&
+        document.activeElement.tagName === "BUTTON"
+      ) {
+        return;
+      }
       const k = e.key.toLowerCase();
 
       if (stage.name === "fielders") {

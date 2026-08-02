@@ -904,7 +904,7 @@ function Header({ title, onBack }: { title: string; onBack: () => void }) {
         <ChevronLeft className="h-5 w-5" />
       </Button>
       <h3 className="text-sm font-semibold uppercase tracking-wide">{title}</h3>
-      <span className="ml-auto text-[10px] uppercase text-muted-foreground">Esc = back</span>
+      <span className="ml-auto text-[10px] uppercase text-muted-foreground">⌫ back</span>
     </div>
   );
 }

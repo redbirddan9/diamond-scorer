@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { registerBackHandler } from "@/lib/keyboard/spatial-nav";
 import { inferRetired } from "@/lib/scoring/rules";
 import type {
   Base,
@@ -292,6 +293,27 @@ export function PlayEntry({
     }
     setPath((p) => p.slice(0, -1));
   }, [stage]);
+
+  // Backspace walks back out of the play tree before anything else claims it.
+  useEffect(
+    () =>
+      registerBackHandler(() => {
+        if (stage.name === "fielders" && fielders.length) {
+          setFielders((f) => f.slice(0, -1));
+          return true;
+        }
+        if (stage.name !== "menu") {
+          back();
+          return true;
+        }
+        if (path.length) {
+          back();
+          return true;
+        }
+        return false;
+      }),
+    [back, fielders.length, path.length, stage.name],
+  );
 
   const current = path[path.length - 1];
   const nodes = current ? current.children! : MENU;

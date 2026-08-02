@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { registerBackHandler } from "@/lib/keyboard/spatial-nav";
 import { TeamMark } from "./TeamMark";
 import { MLB_DIVISIONS, MLB_TEAMS, teamsByDivision, type MlbTeam } from "@/lib/teams/mlb";
 
@@ -20,6 +21,23 @@ export function TeamPicker({ label, teamId, name, recallListId, onChange }: Prop
   const [query, setQuery] = useState("");
   // MLB-first: start on the club picker unless a custom name was already typed.
   const [manual, setManual] = useState(() => !teamId && name.trim().length > 0);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Opening the list puts the caret in search so typing filters straight away.
+  useEffect(() => {
+    if (open) searchRef.current?.focus();
+  }, [open]);
+
+  // Backspace closes the club list (unless the caret is in a text field).
+  useEffect(
+    () =>
+      registerBackHandler(() => {
+        if (!open) return false;
+        setOpen(false);
+        return true;
+      }),
+    [open],
+  );
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -95,6 +113,7 @@ export function TeamPicker({ label, teamId, name, recallListId, onChange }: Prop
         <div className="rounded-md border border-border bg-card p-2">
           <Input
             className="h-10"
+            ref={searchRef}
             placeholder="Search teams…"
             value={query}
             autoComplete="off"

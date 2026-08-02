@@ -261,7 +261,7 @@ function GameScreen() {
   return (
     <>
     <PrintSheet state={state} />
-    <main className="mx-auto min-h-screen w-full max-w-[820px] px-1.5 pb-4 pt-1.5 print:hidden">
+    <main className="mx-auto min-h-screen w-full max-w-[820px] px-1.5 pb-8 pt-1.5 print:hidden">
       <header className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 print:hidden">
         <Button asChild variant="ghost" size="icon" className="h-8 w-8">
           <Link to="/" aria-label="Back to library">

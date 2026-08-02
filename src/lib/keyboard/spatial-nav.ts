@@ -74,7 +74,10 @@ export function nextTarget(from: HTMLElement | null, dir: Direction): HTMLElemen
     const overlap = horizontal
       ? b.rect.bottom > origin.rect.top && b.rect.top < origin.rect.bottom
       : b.rect.right > origin.rect.left && b.rect.left < origin.rect.right;
-    const score = along + cross * (overlap ? 0.4 : 3);
+    // Without row/column overlap the candidate must lie mostly in the pressed
+    // direction, otherwise a control just below counts as "to the right".
+    if (!overlap && cross > along) continue;
+    const score = along + cross * (overlap ? 0.3 : 2);
     if (score < bestScore) {
       bestScore = score;
       best = b;

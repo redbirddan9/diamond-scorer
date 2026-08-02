@@ -100,7 +100,8 @@ export function moveFocus(dir: Direction): boolean {
 
 /** Focus the first focusable element on screen (used when a stage changes). */
 export function focusFirst(): void {
-  const list = focusables();
+  // "Back" chevrons stay arrow-reachable but must never be the auto target.
+  const list = focusables().filter((el) => !el.closest("[data-nav-skip]"));
   // A screen can nominate where keyboard focus should land (the active panel).
   const scoped = list.find((el) => el.closest("[data-nav-scope]"));
   const target = list.find((el) => el.dataset["navPrimary"] === "true") ?? scoped ?? list[0];

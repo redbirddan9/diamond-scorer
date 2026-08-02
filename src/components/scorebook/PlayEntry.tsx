@@ -908,7 +908,14 @@ function Hint({ k, corner }: { k: string; corner?: boolean }) {
 function Header({ title, onBack }: { title: string; onBack: () => void }) {
   return (
     <div className="flex items-center gap-2">
-      <Button variant="ghost" size="icon" className="h-9 w-9" onClick={onBack} aria-label="Back">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-9 w-9"
+        onClick={onBack}
+        aria-label="Back"
+        data-nav-skip
+      >
         <ChevronLeft className="h-5 w-5" />
       </Button>
       <h3 className="text-sm font-semibold uppercase tracking-wide">{title}</h3>

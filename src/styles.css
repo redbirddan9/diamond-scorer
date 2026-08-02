@@ -88,9 +88,9 @@
   --destructive-foreground: oklch(0.99 0 0);
   --border: oklch(0.885 0.008 150);
   --input: oklch(0.885 0.008 150);
-  --ring: var(--field);
   --field: oklch(0.93 0.045 143);
   --field-line: oklch(0.72 0.05 145);
+  --ring: var(--field);
   --ink: oklch(0.18 0.01 150);
   --pencil: oklch(0.55 0.01 150);
   --chart-1: oklch(0.646 0.222 41.116);

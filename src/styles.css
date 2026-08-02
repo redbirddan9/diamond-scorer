@@ -186,7 +186,7 @@
   select:focus,
   textarea:focus,
   [tabindex]:focus {
-    outline: 3px solid var(--color-ring);
+    outline: 3px solid var(--color-field);
     outline-offset: 2px;
     border-radius: var(--radius-sm);
   }

@@ -110,7 +110,8 @@ function GameScreen() {
           setMode("play");
           return true;
         }
-        window.history.back();
+        // At the top of the play menu Backspace is swallowed: a stray press
+        // must never abandon a game in progress.
         return true;
       }),
     [mode, pending, strikeThree],

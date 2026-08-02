@@ -25,6 +25,7 @@ import {
 import { needsAdvancementInput, resolvePlay } from "@/lib/scoring/rules";
 import { describePlay } from "@/lib/scoring/notation";
 import { exportCsv, exportJson, printScorecard } from "@/lib/export";
+import { registerBackHandler } from "@/lib/keyboard/spatial-nav";
 import type {
   AbsCaller,
   AbsOutcome,
@@ -92,6 +93,28 @@ function GameScreen() {
   }, [over, session]);
 
   const handleDepth = useCallback((d: number) => setMenuDepth(d), []);
+
+  // Backspace: close whatever is open, otherwise leave for the library.
+  useEffect(
+    () =>
+      registerBackHandler(() => {
+        if (strikeThree) {
+          setStrikeThree(false);
+          return true;
+        }
+        if (pending) {
+          setPending(null);
+          return true;
+        }
+        if (mode !== "play") {
+          setMode("play");
+          return true;
+        }
+        window.history.back();
+        return true;
+      }),
+    [mode, pending, strikeThree],
+  );
 
   /** Record an observation; the rules layer decides everything else. */
   const startPlay = useCallback(
@@ -273,7 +296,7 @@ function GameScreen() {
       )}
 
       {!over && (
-        <section className="mt-1.5 space-y-1.5">
+        <section className="mt-1.5 space-y-1.5" data-nav-scope>
           <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-md border border-border bg-card p-1.5">
             <Diamond
               first={Boolean(state.bases[1])}

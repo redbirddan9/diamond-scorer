@@ -82,8 +82,11 @@ export function nextTarget(from: HTMLElement | null, dir: Direction): HTMLElemen
   }
   if (best) return best.el;
 
-  // Edge of the screen: wrap through DOM order instead of trapping focus.
-  const order = all.map((b) => b.el);
+  // Edge of the panel: wrap through DOM order inside the same scope so a
+  // one-column menu never throws focus out to the tabs or footer.
+  const scope = from.closest("[data-nav-scope]");
+  const pool = scope ? all.filter((b) => scope.contains(b.el)) : all;
+  const order = (pool.length > 1 ? pool : all).map((b) => b.el);
   const i = order.indexOf(from);
   const step = sign;
   const wrapped = order[(i + step + order.length) % order.length];

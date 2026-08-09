@@ -1,17 +1,19 @@
-The user wants the keyboard navigation "box cursor" (the focused button highlight) to match the green used in the scorecard.
+# Simplify lineup entry + "N" shortcut for New Game
 
-Background
-- The scorecard green is the `--field` design token in `src/styles.css`.
-  - Light mode: `oklch(0.93 0.045 143)` (seen as `fill-field/70` inside scored diamonds and `bg-field/60` on the active batter row).
-  - Dark mode: `oklch(0.3 0.04 145)`.
-- The spatial navigation system moves focus between buttons, so the visible "box cursor" is the browser’s `:focus-visible` / `button:focus` ring.
-- That ring is defined in `src/styles.css` at lines 182–192 with `outline: 3px solid var(--color-ring);`.
+## Roster editor cleanup
+In the lineup sections on the New Game screen:
+- Remove the "Save roster" button.
+- Remove the "Load roster…" dropdown (it only exists to load saved rosters).
+- Keep the name field and the position picker grid for each of the nine spots.
+- Keep the as-you-type name suggestions — typed names are still remembered per player, so autocomplete keeps working.
 
-Changes
-1. Update the global focus ring color in `src/styles.css` from `var(--color-ring)` to `var(--color-field)` so the focused button outline matches the scorecard green family.
-2. Keep the existing `outline-width` (3px) and `outline-offset` (2px) so the highlight remains visible on both light and dark backgrounds.
-3. Do not change any other focus styles (inputs, selects, textareas) unless the same color is desired everywhere — the plan targets only the visible keyboard cursor.
+## "N" opens New Game
+On the home (library) screen, pressing `N` navigates to the New Game screen.
+- Ignored while typing in the search box or any text field, and when a modifier key (Cmd/Ctrl/Alt) is held.
+- The visible New Game button stays clickable and arrow-key focusable; the shortcut is an addition.
+- Add a small "N" hint on the button so it's discoverable.
 
-Validation
-- Navigate the game screen with arrow keys in the preview and confirm the focused button is ringed in the same green as the scorecard diamond fill.
-- Check both light and dark modes to ensure the ring is still clearly distinguishable.
+## Technical notes
+- `src/routes/new.tsx`: drop `loadTemplates` / `saveTemplate` imports, the `templates` state, and the `templates` / `onSaveTemplate` props on `RosterEditor`; keep `loadRecall("players")` and the `rememberRecall` on blur.
+- `src/routes/index.tsx`: add a `keydown` listener that checks `isTextField` from `src/lib/keyboard/spatial-nav.ts` before routing to `/new` via `useNavigate`.
+- Leave the template helpers in `src/lib/storage/games.ts` in place (unused, no behavior change) unless removal is preferred.

@@ -183,8 +183,15 @@
 }
 
 /* Unlayered focus styles so they win over component/utility backgrounds. */
+
+/* Test: highly specific rule for the focused New Game link */
+body a.inline-flex:focus,
+body a.bg-primary:focus,
+body a:focus {
+  background-color: red !important;
+}
+
 :focus-visible,
-a:focus,
 a:focus-visible,
 button:focus,
 button:focus-visible,
@@ -209,7 +216,6 @@ textarea:focus-visible,
     0 0 0 4px var(--color-background),
     0 0 0 10px var(--color-field),
     inset 0 0 0 2px var(--color-field) !important;
-  background-color: red !important;
   transition: outline-offset 0.05s ease, box-shadow 0.05s ease, background-color 0.05s ease;
   z-index: 1000;
 }

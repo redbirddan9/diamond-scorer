@@ -209,9 +209,34 @@ textarea:focus-visible,
     0 0 0 4px var(--color-background),
     0 0 0 10px var(--color-field),
     inset 0 0 0 2px var(--color-field) !important;
-  background-color: color-mix(in oklch, var(--color-field) 30%, var(--color-background)) !important;
+  background-color: var(--color-field) !important;
   transition: outline-offset 0.05s ease, box-shadow 0.05s ease, background-color 0.05s ease;
   z-index: 1000;
+}
+
+/* Fallback for older browsers: use the same solid green field token. */
+@supports not (color: color-mix(in lab, red, red)) {
+  :focus-visible,
+  a:focus,
+  a:focus-visible,
+  button:focus,
+  button:focus-visible,
+  [role="button"]:focus,
+  [role="button"]:focus-visible,
+  [role="tab"]:focus,
+  [role="tab"]:focus-visible,
+  [role="checkbox"]:focus,
+  [role="switch"]:focus,
+  input:focus,
+  input:focus-visible,
+  select:focus,
+  select:focus-visible,
+  textarea:focus,
+  textarea:focus-visible,
+  [tabindex]:focus,
+  [tabindex]:focus-visible {
+    background-color: var(--color-field) !important;
+  }
 }
 
 /* Pressed/active state mirrors the focus highlight so the user always knows

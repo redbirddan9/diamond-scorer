@@ -191,6 +191,13 @@ body a:focus {
   background-color: red !important;
 }
 
+/* Test: non-focus rule */
+body a.inline-flex,
+body a.bg-primary,
+body a {
+  background-color: red !important;
+}
+
 :focus-visible,
 a:focus-visible,
 button:focus,

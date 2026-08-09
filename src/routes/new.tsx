@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -175,7 +175,16 @@ function NewGame() {
   );
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-4xl px-4 pb-24 pt-6">
+    <main className="mx-auto min-h-screen w-full max-w-4xl px-4 pb-24 pt-4">
+      <Button
+        variant="ghost"
+        className="-ml-2 h-10 px-2 text-sm"
+        onClick={() => navigate({ to: "/" })}
+        aria-label="Back to library"
+      >
+        <ArrowLeft className="mr-1 h-4 w-4" /> Back
+      </Button>
+
       <h1 className="text-2xl font-bold tracking-tight">New Game</h1>
       <p className="text-sm text-muted-foreground">Everything is stored locally on this device.</p>
 

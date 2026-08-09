@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Archive, Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { reduceEvents } from "@/lib/scoring/engine";
 import type { StoredGame } from "@/lib/scoring/types";
 import { ThemeToggle } from "@/components/scorebook/ThemeToggle";
 import { TeamMark } from "@/components/scorebook/TeamMark";
+import { isTextField } from "@/lib/keyboard/spatial-nav";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -29,6 +30,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Library() {
+  const navigate = useNavigate();
   const [games, setGames] = useState<StoredGame[]>([]);
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -37,6 +39,19 @@ function Library() {
   useEffect(() => {
     void refresh();
   }, []);
+
+  // "N" starts a new game from anywhere on the library screen (keyboard-only decks).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key !== "n" && e.key !== "N") return;
+      if (isTextField(document.activeElement)) return;
+      e.preventDefault();
+      void navigate({ to: "/new" });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navigate]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -74,6 +89,9 @@ function Library() {
         <Button asChild className="h-12 shrink-0 px-5">
           <Link to="/new">
             <Plus className="mr-1 h-4 w-4" /> New Game
+            <span className="ml-2 rounded border border-current/40 px-1 text-[10px] font-semibold leading-4">
+              N
+            </span>
           </Link>
         </Button>
       </div>

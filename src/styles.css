@@ -180,36 +180,41 @@
   /* Keyboard-only operation: the focused control must be unmistakable on a
      small, glare-prone touchscreen. One consistent highlight for every
      button, input, tab, select, and any pressable/clickable space. */
-  :focus-visible,
-  a:focus,
-  a:focus-visible,
-  button:focus,
-  button:focus-visible,
-  [role="button"]:focus,
-  [role="button"]:focus-visible,
-  [role="tab"]:focus,
-  [role="tab"]:focus-visible,
-  [role="checkbox"]:focus,
-  [role="switch"]:focus,
-  input:focus,
-  input:focus-visible,
-  select:focus,
-  select:focus-visible,
-  textarea:focus,
-  textarea:focus-visible,
-  [tabindex]:focus,
-  [tabindex]:focus-visible {
-    outline: 6px solid var(--color-field) !important;
-    outline-offset: 4px !important;
-    border-radius: var(--radius-sm) !important;
-    box-shadow:
-      0 0 0 4px var(--color-background),
-      0 0 0 10px var(--color-field),
-      inset 0 0 0 2px var(--color-field) !important;
-    background-color: red !important;
-    transition: outline-offset 0.05s ease, box-shadow 0.05s ease, background-color 0.05s ease;
-    z-index: 1000;
-  }
+}
+
+/* Unlayered focus styles so they win over component/utility backgrounds. */
+:focus-visible,
+a:focus,
+a:focus-visible,
+button:focus,
+button:focus-visible,
+[role="button"]:focus,
+[role="button"]:focus-visible,
+[role="tab"]:focus,
+[role="tab"]:focus-visible,
+[role="checkbox"]:focus,
+[role="switch"]:focus,
+input:focus,
+input:focus-visible,
+select:focus,
+select:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+[tabindex]:focus,
+[tabindex]:focus-visible {
+  outline: 6px solid var(--color-field) !important;
+  outline-offset: 4px !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow:
+    0 0 0 4px var(--color-background),
+    0 0 0 10px var(--color-field),
+    inset 0 0 0 2px var(--color-field) !important;
+  background-color: red !important;
+  transition: outline-offset 0.05s ease, box-shadow 0.05s ease, background-color 0.05s ease;
+  z-index: 1000;
+}
+
+@layer base {
 
   /* Pressed/active state mirrors the focus highlight so the user always knows
      which control the keyboard is about to activate. */

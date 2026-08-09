@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { createGame, loadTemplates, saveTemplate } from "@/lib/storage/games";
+import { createGame } from "@/lib/storage/games";
 import { loadRecall, rememberRecall } from "@/lib/storage/recall";
 import { PositionGrid } from "@/components/scorebook/PositionGrid";
 import { TeamPicker } from "@/components/scorebook/TeamPicker";
@@ -67,8 +67,6 @@ function NewGame() {
     umpSecond: "",
     umpThird: "",
   });
-  // Local storage is client-only: read after mount so SSR markup matches.
-  const [templates, setTemplates] = useState<ReturnType<typeof loadTemplates>>([]);
   const [recall, setRecall] = useState({
     teams: [] as string[],
     stadiums: [] as string[],
@@ -76,7 +74,6 @@ function NewGame() {
     players: [] as string[],
   });
   useEffect(() => {
-    setTemplates(loadTemplates());
     setRecall({
       teams: loadRecall("teams"),
       stadiums: loadRecall("stadiums"),

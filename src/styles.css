@@ -183,31 +183,8 @@
 }
 
 /* Unlayered focus styles so they win over component/utility backgrounds. */
-
-/* Test: general unlayered focus rule with red background */
 :focus-visible,
 a:focus,
-a:focus-visible,
-button:focus,
-button:focus-visible,
-[role="button"]:focus,
-[role="button"]:focus-visible,
-[role="tab"]:focus,
-[role="tab"]:focus-visible,
-[role="checkbox"]:focus,
-[role="switch"]:focus,
-input:focus,
-input:focus-visible,
-select:focus,
-select:focus-visible,
-textarea:focus,
-textarea:focus-visible,
-[tabindex]:focus,
-[tabindex]:focus-visible {
-  background-color: red !important;
-}
-
-:focus-visible,
 a:focus-visible,
 button:focus,
 button:focus-visible,
@@ -232,27 +209,27 @@ textarea:focus-visible,
     0 0 0 4px var(--color-background),
     0 0 0 10px var(--color-field),
     inset 0 0 0 2px var(--color-field) !important;
+  background-color: color-mix(in oklch, var(--color-field) 30%, var(--color-background)) !important;
   transition: outline-offset 0.05s ease, box-shadow 0.05s ease, background-color 0.05s ease;
   z-index: 1000;
 }
 
+/* Pressed/active state mirrors the focus highlight so the user always knows
+   which control the keyboard is about to activate. */
+button:active,
+[role="button"]:active,
+[role="tab"]:active,
+a:active,
+input:active,
+select:active,
+textarea:active,
+.pressable:active {
+  outline: 6px solid var(--color-field) !important;
+  outline-offset: 2px !important;
+  background-color: color-mix(in oklch, var(--color-field) 40%, var(--color-background)) !important;
+}
+
 @layer base {
-
-  /* Pressed/active state mirrors the focus highlight so the user always knows
-     which control the keyboard is about to activate. */
-  button:active,
-  [role="button"]:active,
-  [role="tab"]:active,
-  a:active,
-  input:active,
-  select:active,
-  textarea:active,
-  .pressable:active {
-    outline: 6px solid var(--color-field) !important;
-    outline-offset: 2px !important;
-    background-color: color-mix(in oklch, var(--color-field) 40%, var(--color-background)) !important;
-  }
-
   /* Make sure every button-looking element is considered pressable by default. */
   .pressable,
   [role="button"],

@@ -286,20 +286,8 @@ function NewGame() {
         )}
       </section>
 
-      <RosterEditor
-        title={`${meta.awayName || "Away"} Lineup`}
-        players={away}
-        onChange={setAway}
-        templates={templates}
-        onSaveTemplate={() => saveTemplate({ name: meta.awayName, players: away })}
-      />
-      <RosterEditor
-        title={`${meta.homeName || "Home"} Lineup`}
-        players={home}
-        onChange={setHome}
-        templates={templates}
-        onSaveTemplate={() => saveTemplate({ name: meta.homeName, players: home })}
-      />
+      <RosterEditor title={`${meta.awayName || "Away"} Lineup`} players={away} onChange={setAway} />
+      <RosterEditor title={`${meta.homeName || "Home"} Lineup`} players={home} onChange={setHome} />
 
       <div className="mt-8 flex gap-2">
         <Button variant="ghost" className="h-14" onClick={() => navigate({ to: "/" })}>
@@ -317,14 +305,10 @@ function RosterEditor({
   title,
   players,
   onChange,
-  templates,
-  onSaveTemplate,
 }: {
   title: string;
   players: Player[];
   onChange: (players: Player[]) => void;
-  templates: { name: string; players: Player[] }[];
-  onSaveTemplate: () => void;
 }) {
   const update = (index: number, patch: Partial<Player>) =>
     onChange(players.map((p, i) => (i === index ? { ...p, ...patch } : p)));
@@ -332,44 +316,7 @@ function RosterEditor({
 
   return (
     <section className="mt-6 space-y-2">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-        <h2 className="truncate text-sm font-semibold uppercase tracking-wide">{title}</h2>
-        <div className="flex shrink-0 gap-1">
-          {templates.length > 0 && (
-            <select
-              className="h-9 rounded-md border border-input bg-background px-2 text-xs"
-              defaultValue=""
-              onChange={(e) => {
-                const t = templates.find((x) => x.name === e.target.value);
-                if (t)
-                  onChange(
-                    t.players.map((p) => ({
-                      ...p,
-                      id: `${p.id}-${Math.random().toString(36).slice(2, 6)}`,
-                    })),
-                  );
-              }}
-            >
-              <option value="">Load roster…</option>
-              {templates.map((t) => (
-                <option key={t.name} value={t.name}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              rememberRecall("players", ...players.map((p) => p.name));
-              onSaveTemplate();
-            }}
-          >
-            Save roster
-          </Button>
-        </div>
-      </div>
+      <h2 className="truncate text-sm font-semibold uppercase tracking-wide">{title}</h2>
       <ul className="space-y-1.5">
         {players.map((p, i) => (
           <li key={p.id} className="space-y-1">

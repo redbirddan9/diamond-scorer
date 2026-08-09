@@ -251,7 +251,7 @@ textarea:active,
 .pressable:active {
   outline: 6px solid var(--color-field) !important;
   outline-offset: 2px !important;
-  background-color: color-mix(in oklch, var(--color-field) 40%, var(--color-background)) !important;
+  background-color: var(--color-field) !important;
 }
 
 @layer base {

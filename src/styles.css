@@ -186,9 +186,11 @@
   select:focus,
   textarea:focus,
   [tabindex]:focus {
-    outline: 3px solid var(--color-field);
-    outline-offset: 2px;
+    outline: 5px solid var(--color-field);
+    outline-offset: 3px;
     border-radius: var(--radius-sm);
+    box-shadow: 0 0 0 3px var(--color-background), 0 0 0 8px var(--color-field);
+    background-color: color-mix(in oklch, var(--color-field) 25%, transparent);
   }
 }
 

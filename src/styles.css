@@ -178,20 +178,90 @@
   }
 
   /* Keyboard-only operation: the focused control must be unmistakable on a
-     small, glare-prone touchscreen. */
+     small, glare-prone touchscreen. One consistent highlight for every
+     button, input, tab, select, and any pressable/clickable space. */
+}
+
+/* Unlayered focus styles so they win over component/utility backgrounds. */
+:focus-visible,
+a:focus,
+a:focus-visible,
+button:focus,
+button:focus-visible,
+[role="button"]:focus,
+[role="button"]:focus-visible,
+[role="tab"]:focus,
+[role="tab"]:focus-visible,
+[role="checkbox"]:focus,
+[role="switch"]:focus,
+input:focus,
+input:focus-visible,
+select:focus,
+select:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+[tabindex]:focus,
+[tabindex]:focus-visible {
+  outline: 6px solid var(--color-field) !important;
+  outline-offset: 4px !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow:
+    0 0 0 4px var(--color-background),
+    0 0 0 10px var(--color-field),
+    inset 0 0 0 2px var(--color-field) !important;
+  background-color: var(--color-field) !important;
+  transition: outline-offset 0.05s ease, box-shadow 0.05s ease, background-color 0.05s ease;
+  z-index: 1000;
+}
+
+/* Fallback for older browsers: use the same solid green field token. */
+@supports not (color: color-mix(in lab, red, red)) {
   :focus-visible,
   a:focus,
+  a:focus-visible,
   button:focus,
+  button:focus-visible,
+  [role="button"]:focus,
+  [role="button"]:focus-visible,
+  [role="tab"]:focus,
+  [role="tab"]:focus-visible,
+  [role="checkbox"]:focus,
+  [role="switch"]:focus,
   input:focus,
+  input:focus-visible,
   select:focus,
+  select:focus-visible,
   textarea:focus,
-  [tabindex]:focus {
-    outline: 5px solid var(--color-field);
-    outline-offset: 3px;
-    border-radius: var(--radius-sm);
-    box-shadow: 0 0 0 3px var(--color-background), 0 0 0 8px var(--color-field);
-    background-color: color-mix(in oklch, var(--color-field) 25%, transparent);
+  textarea:focus-visible,
+  [tabindex]:focus,
+  [tabindex]:focus-visible {
+    background-color: var(--color-field) !important;
   }
+}
+
+/* Pressed/active state mirrors the focus highlight so the user always knows
+   which control the keyboard is about to activate. */
+button:active,
+[role="button"]:active,
+[role="tab"]:active,
+a:active,
+input:active,
+select:active,
+textarea:active,
+.pressable:active {
+  outline: 6px solid var(--color-field) !important;
+  outline-offset: 2px !important;
+  background-color: var(--color-field) !important;
+}
+
+@layer base {
+  /* Make sure every button-looking element is considered pressable by default. */
+  .pressable,
+  [role="button"],
+  [role="tab"] {
+    cursor: pointer;
+  }
+
 }
 
 /* ---- Print / Save-as-PDF: 3 pages (away card, home card, box score) ---- */

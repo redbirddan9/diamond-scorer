@@ -184,10 +184,26 @@
 
 /* Unlayered focus styles so they win over component/utility backgrounds. */
 
-/* Test: highly specific rule for the focused New Game link */
-body a.inline-flex:focus,
-body a.bg-primary:focus,
-body a:focus {
+/* Test: general unlayered focus rule with red background */
+:focus-visible,
+a:focus,
+a:focus-visible,
+button:focus,
+button:focus-visible,
+[role="button"]:focus,
+[role="button"]:focus-visible,
+[role="tab"]:focus,
+[role="tab"]:focus-visible,
+[role="checkbox"]:focus,
+[role="switch"]:focus,
+input:focus,
+input:focus-visible,
+select:focus,
+select:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+[tabindex]:focus,
+[tabindex]:focus-visible {
   background-color: red !important;
 }
 

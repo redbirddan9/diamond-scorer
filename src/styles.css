@@ -206,7 +206,7 @@
       0 0 0 4px var(--color-background),
       0 0 0 10px var(--color-field),
       inset 0 0 0 2px var(--color-field) !important;
-    background-color: color-mix(in oklch, var(--color-field) 30%, transparent) !important;
+    background-color: oklch(from var(--color-field) l c h / 0.3) !important;
     transition: outline-offset 0.05s ease, box-shadow 0.05s ease, background-color 0.05s ease;
     z-index: 1000;
   }

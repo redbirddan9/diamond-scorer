@@ -223,7 +223,7 @@
   .pressable:active {
     outline: 6px solid var(--color-field) !important;
     outline-offset: 2px !important;
-    background-color: oklch(from var(--color-field) l c h / 0.4) !important;
+    background-color: color-mix(in oklch, var(--color-field) 40%, var(--color-background)) !important;
   }
 
   /* Make sure every button-looking element is considered pressable by default. */

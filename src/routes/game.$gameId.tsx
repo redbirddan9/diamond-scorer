@@ -33,6 +33,7 @@ import type {
   Destination,
   GameEvent,
   GameState,
+  OutDetails,
   PlayInput,
   RunnerInput,
   RunnerKey,
@@ -65,6 +66,7 @@ function GameScreen() {
     input: PlayInput;
     batterId: string;
     overrides: Partial<Record<RunnerKey, Destination>>;
+    outDetails: OutDetails;
   } | null>(null);
   const [strikeThree, setStrikeThree] = useState(false);
   const [mode, setMode] = useState<Mode>("play");

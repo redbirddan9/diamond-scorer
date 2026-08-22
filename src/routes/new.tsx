@@ -409,10 +409,11 @@ function RosterEditor({
                 <PositionGrid
                   value={p.position}
                   onChange={(pos) => {
+                    // Move focus BEFORE the grid unmounts, so nothing falls back
+                    // to the top of the page.
+                    focusRow(i, "pos");
                     update(i, { position: pos });
                     setOpenPos(null);
-                    // Keep focus on this row so the page never scrolls away.
-                    requestAnimationFrame(() => focusRow(i, "pos"));
                   }}
                 />
               </div>

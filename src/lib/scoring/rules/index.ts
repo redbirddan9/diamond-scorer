@@ -43,18 +43,20 @@ export function resolvePlay(
   state: GameState,
   input: PlayInput,
   overrides: Overrides = {},
+  outDetails: OutDetails = {},
 ): PlayResolution {
   return isRunnerInput(input)
     ? resolveRunner(state, input, overrides)
-    : resolveBatter(state, input as BatterInput, overrides);
+    : resolveBatter(state, input as BatterInput, overrides, outDetails);
 }
 
 function resolveBatter(
   state: GameState,
   input: BatterInput,
   overrides: Overrides,
+  outDetails: OutDetails = {},
 ): PlayResolution {
-  const adv = resolveRunnerAdvancement(state, input, overrides);
+  const adv = resolveRunnerAdvancement(state, input, overrides, outDetails);
   const classification = classifyBatterPlay(state, input, adv);
   const rbi = calculateRBIs(input, classification, adv);
   const runs = adv.advances.filter((a) => a.to === 4).length + (adv.batterTo === 4 ? 1 : 0);

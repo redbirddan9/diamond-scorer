@@ -234,6 +234,8 @@ export interface PlayEvent {
   input: BatterInput;
   /** Scorer overrides for runner destinations, keyed by RunnerKey. */
   overrides?: Partial<Record<RunnerKey, Destination>>;
+  /** Where/how each retired runner was put out, keyed by RunnerKey. */
+  outDetails?: OutDetails;
   note?: string;
 }
 
@@ -243,6 +245,7 @@ export interface RunnerEvent {
   ts: string;
   input: RunnerInput;
   overrides?: Partial<Record<RunnerKey, Destination>>;
+  outDetails?: OutDetails;
   note?: string;
 }
 

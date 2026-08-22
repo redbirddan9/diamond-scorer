@@ -126,7 +126,7 @@ function GameScreen() {
       const batterId = currentBatterId(state);
       const resolution = resolvePlay(state, input);
       if (needsAdvancementInput(resolution)) {
-        setPending({ input, batterId, overrides: {} });
+        setPending({ input, batterId, overrides: {}, outDetails: {} });
         return;
       }
       session.commit({
@@ -230,6 +230,7 @@ function GameScreen() {
             batterId: pending.batterId,
             input: pending.input,
             overrides: pending.overrides,
+            outDetails: pending.outDetails,
           },
     );
     setPending(null);
@@ -368,7 +369,9 @@ function GameScreen() {
                 batterId={pending.batterId}
                 overrides={pending.overrides}
                 nameOf={nameOf}
+                outDetails={pending.outDetails}
                 onChange={(overrides) => setPending({ ...pending, overrides })}
+                onDetailsChange={(outDetails) => setPending({ ...pending, outDetails })}
                 onFinalize={finalize}
                 onCancel={() => setPending(null)}
               />

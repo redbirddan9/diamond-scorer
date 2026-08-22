@@ -72,11 +72,12 @@ export function batterProgress(plays: LoggedPlay[], index: number) {
         if (adv.runnerId !== play.batterId) continue;
         if (adv.to === "out") {
           out = true;
+          const chain = adv.fielders?.length ? adv.fielders.join("-") : undefined;
           if (adv.reason === "pickoff") outOnBases = { base: adv.from, label: "PO" };
           else if (adv.reason === "caught-stealing")
             outOnBases = { base: adv.from + 1, label: "CS" };
           else if (adv.reason === "force-out" || adv.reason === "tag-out")
-            outOnBases = { base: adv.from + 1 };
+            outOnBases = { base: adv.at ?? adv.from + 1, label: chain };
         }
         else {
           const errorFielders = later.resolution.errorFielders;

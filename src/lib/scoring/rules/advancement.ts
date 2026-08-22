@@ -89,6 +89,7 @@ export function resolveRunnerAdvancement(
   state: GameState,
   input: BatterInput,
   overrides: Overrides = {},
+  outDetails: OutDetails = {},
 ): AdvancementResult {
   const bases = state.bases;
   const retired = retiredTargets(input);

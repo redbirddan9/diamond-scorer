@@ -9,6 +9,7 @@ import type {
   BatterInput,
   Destination,
   GameState,
+  OutDetails,
   OutTarget,
   RunnerInput,
   RunnerKey,

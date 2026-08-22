@@ -107,10 +107,11 @@ export function buildScorecard(state: GameState, side: TeamSide): RowModel[] {
     state.setup[side].players.find((p) => p.id === id)?.position ??
     "";
 
-  // Pitching change: mark the LAST batter box the outgoing pitcher faced.
+  // Pitching change: mark the LAST batter box the outgoing pitcher faced. The
+  // change belongs to the fielding team, so it is drawn on the OPPONENT's card.
   const pitchChangePlayIds = new Set<string>();
   state.subLog.forEach((s) => {
-    if (s.kind !== "P") return;
+    if (s.kind !== "P" || s.team === side) return;
     const upto = typeof s.playIndex === "number" ? s.playIndex : state.plays.length;
     for (let i = upto - 1; i >= 0; i -= 1) {
       const p = state.plays[i];
@@ -178,10 +179,18 @@ export function buildScorecard(state: GameState, side: TeamSide): RowModel[] {
       })),
     ].filter((n) => n.id);
 
+    // Bold rule goes on the LEFT edge of the substitute's first box.
     let boundaryInning: number | undefined;
     if (subs.length) {
       const last = subs[subs.length - 1];
-      boundaryInning = cells[last.inning] ? last.inning + 1 : last.inning;
+      const firstPa = state.plays.find(
+        (p) =>
+          p.type === "play" &&
+          p.battingTeam === side &&
+          p.slot === slot &&
+          p.batterId === last.inPlayerId,
+      );
+      boundaryInning = firstPa ? firstPa.inning : last.inning;
     }
 
     return { slot, names, boundaryInning, cells, ab, r, h, rbi };

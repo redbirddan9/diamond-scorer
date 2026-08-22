@@ -170,7 +170,7 @@ function GameScreen() {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const k = e.key.toLowerCase();
       if (strikeThree) {
-        if (k === "s") startPlay({ kind: "strikeout", swinging: true });
+        if (k === "k") startPlay({ kind: "strikeout", swinging: true });
         else if (k === "l") startPlay({ kind: "strikeout", swinging: false });
         else if (e.key !== "Escape") return;
         setStrikeThree(false);
@@ -382,7 +382,7 @@ function GameScreen() {
                     startPlay({ kind: "strikeout", swinging: true });
                   }}
                 >
-                  Swinging (S)
+                  Swinging (K)
                 </Button>
                 <Button
                   className="h-12 text-base"

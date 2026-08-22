@@ -83,7 +83,7 @@ export const MENU: Node[] = [
     children: [
       {
         key: "ks",
-        hot: "s",
+        hot: "k",
         symbol: "K",
         label: "Swinging",
         batter: { kind: "strikeout", swinging: true },

@@ -185,7 +185,20 @@ export interface Advance {
   from: Base;
   to: Destination;
   reason: AdvanceReason;
+  /** Base the runner was retired at (4 = home), when known. */
+  at?: 1 | 2 | 3 | 4;
+  /** Fielders who made the put-out, in order (e.g. [9, 6, 2] = 9-6-2). */
+  fielders?: number[];
 }
+
+/** Where and how a runner was retired, entered by the scorer. */
+export interface OutDetail {
+  at: 1 | 2 | 3 | 4;
+  fielders: number[];
+}
+
+export type OutDetails = Partial<Record<RunnerKey, OutDetail>>;
+
 
 /** The full, official outcome of one play as decided by the rules layer. */
 export interface PlayResolution {
@@ -221,6 +234,8 @@ export interface PlayEvent {
   input: BatterInput;
   /** Scorer overrides for runner destinations, keyed by RunnerKey. */
   overrides?: Partial<Record<RunnerKey, Destination>>;
+  /** Where/how each retired runner was put out, keyed by RunnerKey. */
+  outDetails?: OutDetails;
   note?: string;
 }
 
@@ -230,6 +245,7 @@ export interface RunnerEvent {
   ts: string;
   input: RunnerInput;
   overrides?: Partial<Record<RunnerKey, Destination>>;
+  outDetails?: OutDetails;
   note?: string;
 }
 

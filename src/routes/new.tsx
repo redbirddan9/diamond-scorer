@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { createGame } from "@/lib/storage/games";
 import { loadRecall, rememberRecall } from "@/lib/storage/recall";
-import { PositionGrid } from "@/components/scorebook/PositionGrid";
+import { KEY_TO_POSITION, PositionGrid } from "@/components/scorebook/PositionGrid";
 import { TeamPicker } from "@/components/scorebook/TeamPicker";
 import { newId } from "@/lib/useGame";
 import type { GameSetup, Player, TeamSetup } from "@/lib/scoring/types";
@@ -310,6 +310,11 @@ function NewGame() {
   );
 }
 
+/** Title-case a typed name without fighting the caret ("danny p" -> "Danny P"). */
+function titleCase(value: string) {
+  return value.replace(/(^|[\s'’-])([a-z])/g, (_m, sep: string, ch: string) => sep + ch.toUpperCase());
+}
+
 function RosterEditor({
   title,
   players,
@@ -322,14 +327,25 @@ function RosterEditor({
   const update = (index: number, patch: Partial<Player>) =>
     onChange(players.map((p, i) => (i === index ? { ...p, ...patch } : p)));
   const [openPos, setOpenPos] = useState<number | null>(null);
+  const groupId = useId();
+
+  const focusRow = (index: number, part: "name" | "pos") => {
+    const el = document.querySelector<HTMLElement>(
+      `[data-roster="${groupId}"][data-row="${index}"][data-part="${part}"]`,
+    );
+    el?.focus();
+  };
 
   return (
     <section className="mt-6 space-y-2">
       <h2 className="truncate text-sm font-semibold uppercase tracking-wide">{title}</h2>
+      <p className="text-xs text-muted-foreground">
+        Type the position by number — 2 = C, 7 = LF, D = DH.
+      </p>
       <ul className="space-y-1.5">
         {players.map((p, i) => (
           <li key={p.id} className="space-y-1">
-            <div className="grid grid-cols-[minmax(0,1fr)_6rem] items-center gap-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_4.5rem_2.75rem] items-center gap-2">
               <Input
                 className="h-11"
                 value={p.name}
@@ -337,17 +353,55 @@ function RosterEditor({
                 autoComplete="off"
                 placeholder={`Player ${i + 1}`}
                 aria-label="Player name"
-                onChange={(e) => update(i, { name: e.target.value })}
+                data-roster={groupId}
+                data-row={i}
+                data-part="name"
+                onChange={(e) => update(i, { name: titleCase(e.target.value) })}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    focusRow(i, "pos");
+                  }
+                }}
                 onBlur={(e) => rememberRecall("players", e.target.value)}
+              />
+              <Input
+                className="h-11 text-center font-medium"
+                value={p.position}
+                placeholder="Pos"
+                aria-label="Position (type 2 for C, 7 for LF, D for DH)"
+                inputMode="numeric"
+                data-roster={groupId}
+                data-row={i}
+                data-part="pos"
+                onChange={() => {
+                  /* value is driven entirely by single-key entry below */
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Backspace" || e.key === "Delete") {
+                    e.preventDefault();
+                    update(i, { position: "" });
+                    return;
+                  }
+                  const pos = KEY_TO_POSITION[e.key.toLowerCase()];
+                  if (!pos) return;
+                  e.preventDefault();
+                  update(i, { position: pos });
+                  // Straight on to the next batter's name.
+                  if (i + 1 < players.length) focusRow(i + 1, "name");
+                }}
               />
               <Button
                 type="button"
                 variant="outline"
-                aria-label="Position"
-                className="h-11 font-medium"
+                aria-label="Pick position from grid"
+                className="h-11 px-0"
+                data-roster={groupId}
+                data-row={i}
+                data-part="grid"
                 onClick={() => setOpenPos(openPos === i ? null : i)}
               >
-                {p.position || "Pos"}
+                <LayoutGrid className="h-4 w-4" />
               </Button>
             </div>
             {openPos === i && (
@@ -355,6 +409,9 @@ function RosterEditor({
                 <PositionGrid
                   value={p.position}
                   onChange={(pos) => {
+                    // Move focus BEFORE the grid unmounts, so nothing falls back
+                    // to the top of the page.
+                    focusRow(i, "pos");
                     update(i, { position: pos });
                     setOpenPos(null);
                   }}

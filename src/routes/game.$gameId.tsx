@@ -33,6 +33,7 @@ import type {
   Destination,
   GameEvent,
   GameState,
+  OutDetails,
   PlayInput,
   RunnerInput,
   RunnerKey,
@@ -65,6 +66,7 @@ function GameScreen() {
     input: PlayInput;
     batterId: string;
     overrides: Partial<Record<RunnerKey, Destination>>;
+    outDetails: OutDetails;
   } | null>(null);
   const [strikeThree, setStrikeThree] = useState(false);
   const [mode, setMode] = useState<Mode>("play");
@@ -124,7 +126,7 @@ function GameScreen() {
       const batterId = currentBatterId(state);
       const resolution = resolvePlay(state, input);
       if (needsAdvancementInput(resolution)) {
-        setPending({ input, batterId, overrides: {} });
+        setPending({ input, batterId, overrides: {}, outDetails: {} });
         return;
       }
       session.commit({
@@ -170,7 +172,7 @@ function GameScreen() {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const k = e.key.toLowerCase();
       if (strikeThree) {
-        if (k === "s") startPlay({ kind: "strikeout", swinging: true });
+        if (k === "k") startPlay({ kind: "strikeout", swinging: true });
         else if (k === "l") startPlay({ kind: "strikeout", swinging: false });
         else if (e.key !== "Escape") return;
         setStrikeThree(false);
@@ -228,6 +230,7 @@ function GameScreen() {
             batterId: pending.batterId,
             input: pending.input,
             overrides: pending.overrides,
+            outDetails: pending.outDetails,
           },
     );
     setPending(null);
@@ -366,7 +369,9 @@ function GameScreen() {
                 batterId={pending.batterId}
                 overrides={pending.overrides}
                 nameOf={nameOf}
+                outDetails={pending.outDetails}
                 onChange={(overrides) => setPending({ ...pending, overrides })}
+                onDetailsChange={(outDetails) => setPending({ ...pending, outDetails })}
                 onFinalize={finalize}
                 onCancel={() => setPending(null)}
               />
@@ -382,7 +387,7 @@ function GameScreen() {
                     startPlay({ kind: "strikeout", swinging: true });
                   }}
                 >
-                  Swinging (S)
+                  Swinging (K)
                 </Button>
                 <Button
                   className="h-12 text-base"

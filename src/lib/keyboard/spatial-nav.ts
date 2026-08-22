@@ -111,7 +111,8 @@ export function focusFirst(): void {
   // A screen can nominate where keyboard focus should land (the active panel).
   const scoped = list.find((el) => el.closest("[data-nav-scope]"));
   const target = list.find((el) => el.dataset["navPrimary"] === "true") ?? scoped ?? list[0];
-  target?.focus();
+  // preventScroll: recovering focus must never yank the page back to the top.
+  target?.focus({ preventScroll: true });
 }
 
 /* --------------------------- back handler stack --------------------------- */

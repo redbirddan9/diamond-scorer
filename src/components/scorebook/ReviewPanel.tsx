@@ -7,6 +7,8 @@ import type {
   Base,
   Destination,
   GameState,
+  OutDetail,
+  OutDetails,
   PlayInput,
   RunnerKey,
 } from "@/lib/scoring/types";
@@ -17,8 +19,10 @@ interface ReviewPanelProps {
   input: PlayInput;
   batterId: string;
   overrides: Partial<Record<RunnerKey, Destination>>;
+  outDetails: OutDetails;
   nameOf: (id: string) => string;
   onChange: (overrides: Partial<Record<RunnerKey, Destination>>) => void;
+  onDetailsChange: (details: OutDetails) => void;
   onFinalize: () => void;
   onCancel: () => void;
 }
@@ -31,6 +35,20 @@ const DESTINATIONS: { label: string; value: Destination }[] = [
   { label: "Out", value: "out" },
 ];
 
+const BASE_LABEL: Record<number, string> = { 1: "1st", 2: "2nd", 3: "3rd", 4: "Home" };
+
+const FIELDERS = [
+  { n: 1, label: "P" },
+  { n: 2, label: "C" },
+  { n: 3, label: "1B" },
+  { n: 4, label: "2B" },
+  { n: 5, label: "3B" },
+  { n: 6, label: "SS" },
+  { n: 7, label: "LF" },
+  { n: 8, label: "CF" },
+  { n: 9, label: "RF" },
+];
+
 /**
  * Advancement review. Shown ONLY when a runner's destination is genuinely
  * uncertain. RBIs and the play classification are computed, never entered.
@@ -40,12 +58,14 @@ export function ReviewPanel({
   input,
   batterId,
   overrides,
+  outDetails,
   nameOf,
   onChange,
+  onDetailsChange,
   onFinalize,
   onCancel,
 }: ReviewPanelProps) {
-  const resolution = resolvePlay(state, input, overrides);
+  const resolution = resolvePlay(state, input, overrides, outDetails);
   const errors = validate(state, input, resolution);
   const preview = applyEvent(state, {
     id: "preview",
@@ -54,6 +74,7 @@ export function ReviewPanel({
     batterId,
     input: input as never,
     overrides,
+    outDetails,
   });
   const notation = notationParts({
     id: "preview",
@@ -86,6 +107,9 @@ export function ReviewPanel({
 
   const setDestination = (key: RunnerKey, value: Destination) =>
     onChange({ ...overrides, [key]: value });
+
+  const setDetail = (key: RunnerKey, detail: OutDetail) =>
+    onDetailsChange({ ...outDetails, [key]: detail });
 
   return (
     <div className="space-y-3">
@@ -129,18 +153,28 @@ export function ReviewPanel({
 
       {occupied.map((base) => {
         const key = String(base) as RunnerKey;
+        const value = destinationOf(key);
         return (
-          <RunnerRow
-            key={base}
-            label={`${base === 1 ? "1st" : base === 2 ? "2nd" : "3rd"} — ${nameOf(state.bases[base]!)}`}
-            value={destinationOf(key)}
-            uncertain={resolution.uncertain.includes(key)}
-            options={DESTINATIONS.filter(
-              (d) => d.value === "out" || d.value === 4 || (typeof d.value === "number" && d.value > base),
+          <div key={base} className="space-y-1">
+            <RunnerRow
+              label={`${BASE_LABEL[base]} — ${nameOf(state.bases[base]!)}`}
+              value={value}
+              uncertain={resolution.uncertain.includes(key)}
+              options={DESTINATIONS.filter(
+                (d) =>
+                  d.value === "out" || d.value === 4 || (typeof d.value === "number" && d.value > base),
+              )}
+              hold={{ label: `Hold ${BASE_LABEL[base]}`, value: base as Destination }}
+              onSelect={(v) => setDestination(key, v)}
+            />
+            {value === "out" && (
+              <OutDetailRow
+                from={base}
+                detail={outDetails[key]}
+                onChange={(d) => setDetail(key, d)}
+              />
             )}
-            hold={{ label: base === 1 ? "Hold 1st" : base === 2 ? "Hold 2nd" : "Hold 3rd", value: base as Destination }}
-            onSelect={(v) => setDestination(key, v)}
-          />
+          </div>
         );
       })}
 
@@ -162,6 +196,70 @@ export function ReviewPanel({
           onClick={onFinalize}
         >
           Finalize Play
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Where and how a runner was retired: base + fielding sequence (e.g. 9-6-2). */
+function OutDetailRow({
+  from,
+  detail,
+  onChange,
+}: {
+  from: Base;
+  detail?: OutDetail;
+  onChange: (detail: OutDetail) => void;
+}) {
+  const at = detail?.at ?? (Math.min(from + 1, 4) as 1 | 2 | 3 | 4);
+  const fielders = detail?.fielders ?? [];
+  const bases = ([2, 3, 4] as const).filter((b) => b > from);
+
+  return (
+    <div className="space-y-2 rounded-md border border-dashed border-border p-2">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Out at
+        </span>
+        {bases.map((b) => (
+          <Button
+            key={b}
+            size="sm"
+            variant={at === b ? "default" : "outline"}
+            className="h-9 min-w-14 text-xs"
+            onClick={() => onChange({ at: b, fielders })}
+          >
+            {BASE_LABEL[b]}
+          </Button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          How
+        </span>
+        <span className="min-w-14 font-mono text-sm font-bold">
+          {fielders.length ? fielders.join("-") : "—"}
+        </span>
+        {FIELDERS.map((f) => (
+          <Button
+            key={f.n}
+            size="sm"
+            variant="outline"
+            className="h-9 w-11 flex-col gap-0 px-0 text-[10px] leading-tight"
+            onClick={() => onChange({ at, fielders: [...fielders, f.n] })}
+          >
+            <span className="font-mono text-xs font-bold">{f.n}</span>
+            <span className="opacity-70">{f.label}</span>
+          </Button>
+        ))}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-9 text-xs"
+          onClick={() => onChange({ at, fielders: [] })}
+        >
+          Clear
         </Button>
       </div>
     </div>

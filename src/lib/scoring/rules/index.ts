@@ -8,6 +8,7 @@
 import type {
   BatterInput,
   GameState,
+  OutDetails,
   PlayInput,
   PlayResolution,
   RunnerInput,

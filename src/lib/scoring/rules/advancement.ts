@@ -185,7 +185,19 @@ export function resolveRunnerAdvancement(
     }
     if (!certain) uncertain.push(key);
     if (to !== (from as unknown as Destination)) {
-      advances.push({ runnerId, from, to, reason: to === "out" ? "tag-out" : reason });
+      if (to === "out") {
+        const detail = outDetails[key];
+        advances.push({
+          runnerId,
+          from,
+          to,
+          reason: "tag-out",
+          at: detail?.at ?? (Math.min(from + 1, 4) as 1 | 2 | 3 | 4),
+          fielders: detail?.fielders?.length ? detail.fielders : undefined,
+        });
+      } else {
+        advances.push({ runnerId, from, to, reason });
+      }
     }
   }
 

@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, ChevronDown, ChevronRight, LayoutGrid } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { createGame } from "@/lib/storage/games";
 import { loadRecall, rememberRecall } from "@/lib/storage/recall";
-import { KEY_TO_POSITION, PositionGrid } from "@/components/scorebook/PositionGrid";
+import { KEY_TO_POSITION } from "@/components/scorebook/PositionGrid";
 import { TeamPicker } from "@/components/scorebook/TeamPicker";
 import { newId } from "@/lib/useGame";
 import type { GameSetup, Player, TeamSetup } from "@/lib/scoring/types";

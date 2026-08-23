@@ -326,7 +326,6 @@ function RosterEditor({
 }) {
   const update = (index: number, patch: Partial<Player>) =>
     onChange(players.map((p, i) => (i === index ? { ...p, ...patch } : p)));
-  const [openPos, setOpenPos] = useState<number | null>(null);
   const groupId = useId();
 
   const focusRow = (index: number, part: "name" | "pos") => {
@@ -336,88 +335,68 @@ function RosterEditor({
     el?.focus();
   };
 
+  const normalizePosition = (raw: string) => {
+    const upper = raw.trim().toUpperCase();
+    if (KEY_TO_POSITION[upper.toLowerCase()]) return KEY_TO_POSITION[upper.toLowerCase()];
+    if (["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH"].includes(upper)) return upper;
+    return "";
+  };
+
   return (
     <section className="mt-6 space-y-2">
       <h2 className="truncate text-sm font-semibold uppercase tracking-wide">{title}</h2>
       <p className="text-xs text-muted-foreground">
-        Type the position by number — 2 = C, 7 = LF, D = DH.
+        Type position by number — 2=C, 3=1B, 4=2B, 5=3B, 6=SS, 7=LF, 8=CF, 9=RF, D=DH.
       </p>
       <ul className="space-y-1.5">
         {players.map((p, i) => (
-          <li key={p.id} className="space-y-1">
-            <div className="grid grid-cols-[minmax(0,1fr)_4.5rem_2.75rem] items-center gap-2">
-              <Input
-                className="h-11"
-                value={p.name}
-                list="recall-players"
-                autoComplete="off"
-                placeholder={`Player ${i + 1}`}
-                aria-label="Player name"
-                data-roster={groupId}
-                data-row={i}
-                data-part="name"
-                onChange={(e) => update(i, { name: titleCase(e.target.value) })}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    focusRow(i, "pos");
-                  }
-                }}
-                onBlur={(e) => rememberRecall("players", e.target.value)}
-              />
-              <Input
-                className="h-11 text-center font-medium"
-                value={p.position}
-                placeholder="Pos"
-                aria-label="Position (type 2 for C, 7 for LF, D for DH)"
-                inputMode="numeric"
-                data-roster={groupId}
-                data-row={i}
-                data-part="pos"
-                onChange={() => {
-                  /* value is driven entirely by single-key entry below */
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Backspace" || e.key === "Delete") {
-                    e.preventDefault();
-                    update(i, { position: "" });
-                    return;
-                  }
-                  const pos = KEY_TO_POSITION[e.key.toLowerCase()];
-                  if (!pos) return;
+          <li key={p.id} className="grid grid-cols-[minmax(0,1fr)_5rem] items-center gap-2">
+            <Input
+              className="h-11"
+              value={p.name}
+              list="recall-players"
+              autoComplete="off"
+              placeholder={`Player ${i + 1}`}
+              aria-label="Player name"
+              data-roster={groupId}
+              data-row={i}
+              data-part="name"
+              onChange={(e) => update(i, { name: titleCase(e.target.value) })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
                   e.preventDefault();
-                  update(i, { position: pos });
-                  // Straight on to the next batter's name.
-                  if (i + 1 < players.length) focusRow(i + 1, "name");
-                }}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                aria-label="Pick position from grid"
-                className="h-11 px-0"
-                data-roster={groupId}
-                data-row={i}
-                data-part="grid"
-                onClick={() => setOpenPos(openPos === i ? null : i)}
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-            </div>
-            {openPos === i && (
-              <div className="rounded-md border border-border p-2">
-                <PositionGrid
-                  value={p.position}
-                  onChange={(pos) => {
-                    // Move focus BEFORE the grid unmounts, so nothing falls back
-                    // to the top of the page.
-                    focusRow(i, "pos");
-                    update(i, { position: pos });
-                    setOpenPos(null);
-                  }}
-                />
-              </div>
-            )}
+                  focusRow(i, "pos");
+                }
+              }}
+              onBlur={(e) => rememberRecall("players", e.target.value)}
+            />
+            <Input
+              className="h-11 text-center font-medium"
+              value={p.position}
+              placeholder="Pos"
+              aria-label="Position (type 2 for C, 7 for LF, D for DH)"
+              inputMode="text"
+              maxLength={2}
+              data-roster={groupId}
+              data-row={i}
+              data-part="pos"
+              onChange={(e) => {
+                const pos = normalizePosition(e.target.value);
+                update(i, { position: pos });
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Backspace" || e.key === "Delete") {
+                  e.preventDefault();
+                  update(i, { position: "" });
+                  return;
+                }
+                const pos = KEY_TO_POSITION[e.key.toLowerCase()];
+                if (!pos) return;
+                e.preventDefault();
+                update(i, { position: pos });
+                if (i + 1 < players.length) focusRow(i + 1, "name");
+              }}
+            />
           </li>
         ))}
       </ul>

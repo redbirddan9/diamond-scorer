@@ -2,14 +2,15 @@ import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-/** Dark mode for night games; persisted locally. */
+/** Dark by default (night games); light mode is opt-in and persisted locally. */
 export function ThemeToggle() {
-  const [dark, setDark] = useState(false);
+  const [dark, setDark] = useState(true);
 
   useEffect(() => {
-    const stored = localStorage.getItem("scorebook.theme") === "dark";
-    setDark(stored);
-    document.documentElement.classList.toggle("dark", stored);
+    const stored = localStorage.getItem("scorebook.theme");
+    const isDark = stored !== "light";
+    setDark(isDark);
+    document.documentElement.classList.toggle("dark", isDark);
   }, []);
 
   const toggle = () => {
@@ -20,7 +21,13 @@ export function ThemeToggle() {
   };
 
   return (
-    <Button variant="outline" size="icon" className="h-11 w-11" onClick={toggle} aria-label="Toggle dark mode">
+    <Button
+      variant="outline"
+      size="icon"
+      className="h-11 w-11"
+      onClick={toggle}
+      aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+    >
       {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
     </Button>
   );
